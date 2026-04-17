@@ -1,0 +1,744 @@
+# Home Alarm Keypad — Phase 3: LVGL keypad UI wired to hawa alarm
+# Board:   Guition ESP32-S3-4848S040
+# Sources:
+#   Pin map + display config: https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
+#   Full community config:    https://github.com/esphome/esphome-devices/blob/main/src/docs/devices/Guition-ESP32-S3-4848S040/index.md
+#   Board overview:           https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
+
+esphome:
+  name: home-alarm-keypad-downstairs
+  friendly_name: Home-Alarm-KeyPad-DownStairs
+
+# Switched from arduino to esp-idf — required for RGB panel + LVGL
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+# 8MB octal PSRAM required for LVGL frame buffer
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    on_begin:
+      # Prevent display flickering during OTA flash
+      - light.turn_off:
+          id: display_backlight
+          transition_length: 0s
+      - lambda: "id(display_backlight).loop();"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: !secret ap_ssid
+    password: !secret ap_password
+
+captive_portal:
+
+# Entered PIN — cleared after each arm/disarm attempt
+globals:
+  - id: entered_code
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: disarm_requires_code
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  # false = code_arm_required: false in hawa alarm config
+  - id: arm_requires_code
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 0=disarm  1=arm_away  2=arm_home  3=arm_night
+  - id: pending_action
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+# Subscribe to alarm state and code requirements from hawa
+text_sensor:
+  - platform: homeassistant
+    id: alarm_code_arm_required
+    entity_id: alarm_control_panel.home_alarm
+    attribute: code_arm_required
+    on_value:
+      - lambda: id(arm_requires_code) = (x == "true");
+  - platform: homeassistant
+    id: alarm_code_disarm_required
+    entity_id: alarm_control_panel.home_alarm
+    attribute: code_disarm_required
+    on_value:
+      - lambda: id(disarm_requires_code) = (x == "true");
+  - platform: homeassistant
+    id: alarm_state
+    entity_id: alarm_control_panel.home_alarm
+    on_value:
+      - lvgl.label.update:
+          id: lbl_status
+          text: !lambda |-
+            if (x == "disarmed")    return "DISARMED";
+            if (x == "armed_away")  return "ARMED AWAY";
+            if (x == "armed_home")  return "ARMED HOME";
+            if (x == "arming")      return "ARMING...";
+            if (x == "disarming")   return "DISARMING...";
+            if (x == "pending")     return "PENDING...";
+            if (x == "triggered")   return "!! TRIGGERED !!";
+            return x.c_str();
+      - script.stop: anim_arming
+      - script.stop: anim_triggered
+      - if:
+          condition:
+            lambda: return x == "disarmed";
+          then:
+            - lvgl.widget.show:
+                id: arm_buttons_row
+            - lvgl.widget.hide:
+                id: disarm_btn
+      - if:
+          condition:
+            lambda: return x == "arming" || x == "pending" || x == "disarming";
+          then:
+            - lvgl.widget.hide:
+                id: arm_buttons_row
+            - lvgl.widget.show:
+                id: disarm_btn
+            - script.execute: anim_arming
+      - if:
+          condition:
+            lambda: return x == "triggered";
+          then:
+            - lvgl.widget.hide:
+                id: arm_buttons_row
+            - lvgl.widget.show:
+                id: disarm_btn
+            - script.execute: anim_triggered
+      - if:
+          condition:
+            lambda: return x == "armed_away" || x == "armed_home" || x == "armed_night";
+          then:
+            - lvgl.widget.hide:
+                id: arm_buttons_row
+            - lvgl.widget.show:
+                id: disarm_btn
+            - lvgl.button.update:
+                id: disarm_btn
+                bg_color: 0xe94560
+
+# Backlight — GPIO38, PWM via LEDC
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: GPIO38
+    frequency: 150Hz
+    min_power: 0.01
+    zero_means_zero: true
+
+light:
+  - platform: monochromatic
+    name: Backlight
+    id: display_backlight
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 1s
+
+# SPI bus — ST7701S init/config only (display data is RGB parallel)
+spi:
+  - id: lcd_spi
+    clk_pin: GPIO48
+    mosi_pin: GPIO47
+
+# I2C bus — GT911 touch controller
+# NOTE: touch IC on this board is GT911, not CST820 as originally assumed
+i2c:
+  id: touchscreen_bus
+  sda: GPIO19
+  scl:
+    number: 45
+    ignore_strapping_warning: true
+
+# ST7701S — 16-bit RGB parallel interface, 480x480
+display:
+  - platform: st7701s
+    id: tft_display
+    dimensions:
+      width: 480
+      height: 480
+    spi_mode: MODE3
+    data_rate: 2MHz
+    color_order: RGB
+    invert_colors: False
+    cs_pin: 39
+    de_pin: 18
+    hsync_pin: 16
+    vsync_pin: 17
+    pclk_pin: 21
+    pclk_frequency: 12MHz
+    pclk_inverted: False
+    hsync_pulse_width: 8
+    hsync_front_porch: 10
+    hsync_back_porch: 20
+    vsync_pulse_width: 8
+    vsync_front_porch: 10
+    vsync_back_porch: 10
+    update_interval: never
+    auto_clear_enabled: False
+    init_sequence:
+      - 1
+      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]
+      - [0xCD, 0x00]
+    data_pins:
+      red:   [11, 12, 13, 14,  0]
+      green: [ 8, 20,  3, 46,  9, 10]
+      blue:  [ 4,  5,  6,  7, 15]
+
+touchscreen:
+  - platform: gt911
+    id: tft_touch
+    display: tft_display
+
+script:
+  # Slow orange pulse — arming / pending / disarming
+  - id: anim_arming
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: return true;
+          then:
+            - lvgl.button.update:
+                id: disarm_btn
+                bg_color: 0xff8800
+            - delay: 700ms
+            - lvgl.button.update:
+                id: disarm_btn
+                bg_color: 0x3a2000
+            - delay: 700ms
+  # Fast red strobe — triggered
+  - id: anim_triggered
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: return true;
+          then:
+            - lvgl.button.update:
+                id: disarm_btn
+                bg_color: 0xff0000
+            - delay: 250ms
+            - lvgl.button.update:
+                id: disarm_btn
+                bg_color: 0x1a0000
+            - delay: 250ms
+
+font:
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: mdi_icons
+    size: 40
+    glyphs:
+      - "\U000F033E"  # mdi:lock          → ARM AWAY
+      - "\U000F0594"  # mdi:weather-night → ARM NIGHT
+      - "\U000F0FF2"  # mdi:shield-off    → DISARM
+
+lvgl:
+  # USB-C is at the bottom
+  rotation: 270
+
+  pages:
+    - id: keypad_page
+      widgets:
+        - obj:
+            width: 480
+            height: 480
+            pad_all: 0
+            bg_color: 0x1a1a2e
+            border_width: 0
+            scrollbar_mode: "off"
+            scrollable: false
+            widgets:
+
+              # Status area — PIN overlay appears here when entering digits
+              # y=5  h=48  bottom=53
+              - obj:
+                  x: 10
+                  y: 5
+                  width: 460
+                  height: 48
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  widgets:
+                    - label:
+                        id: lbl_status
+                        align: CENTER
+                        text_align: CENTER
+                        text: "Connecting..."
+                        text_font: montserrat_28
+                        text_color: 0xffffff
+                    - obj:
+                        id: code_display
+                        align: CENTER
+                        width: 460
+                        height: 48
+                        bg_color: 0x16213e
+                        radius: 8
+                        border_width: 1
+                        border_color: 0x0f3460
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        hidden: true
+                        widgets:
+                          - label:
+                              id: lbl_code
+                              align: CENTER
+                              text: ""
+                              text_font: montserrat_28
+                              text_color: 0xe94560
+
+              # Row 1: 1 2 3  — y=56  h=78  bottom=134
+              - obj:
+                  x: 10
+                  y: 56
+                  width: 460
+                  height: 78
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "1";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "1"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "2";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "2"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "3";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "3"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+
+              # Row 2: 4 5 6  — y=137  h=78  bottom=215
+              - obj:
+                  x: 10
+                  y: 137
+                  width: 460
+                  height: 78
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "4";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "4"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "5";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "5"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "6";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "6"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+
+              # Row 3: 7 8 9  — y=218  h=78  bottom=296
+              - obj:
+                  x: 10
+                  y: 218
+                  width: 460
+                  height: 78
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "7";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "7"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "8";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "8"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "9";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "9"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+
+              # Row 4: CLR 0 OK  — y=299  h=78  bottom=377
+              - obj:
+                  x: 10
+                  y: 299
+                  width: 460
+                  height: 78
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: |-
+                              if (!id(entered_code).empty())
+                                id(entered_code).pop_back();
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - if:
+                              condition:
+                                lambda: return id(entered_code).empty();
+                              then:
+                                - lvgl.widget.hide:
+                                    id: code_display
+                        widgets:
+                          - label:
+                              text: "CLR"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x16213e
+                        on_press:
+                          - lvgl.widget.show:
+                              id: code_display
+                          - lambda: id(entered_code) += "0";
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: !lambda return std::string(id(entered_code).size(), '*');
+                        widgets:
+                          - label:
+                              text: "0"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x0f3460
+                        on_press:
+                          - if:
+                              condition:
+                                lambda: return id(pending_action) == 0;
+                              then:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_disarm
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                                      code: !lambda return id(entered_code);
+                          - if:
+                              condition:
+                                lambda: return id(pending_action) == 1;
+                              then:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_away
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                                      code: !lambda return id(entered_code);
+                          - if:
+                              condition:
+                                lambda: return id(pending_action) == 2;
+                              then:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_home
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                                      code: !lambda return id(entered_code);
+                          - if:
+                              condition:
+                                lambda: return id(pending_action) == 3;
+                              then:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_night
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                                      code: !lambda return id(entered_code);
+                          - lambda: id(entered_code) = ""; id(pending_action) = 0;
+                          - lvgl.label.update:
+                              id: lbl_code
+                              text: ""
+                          - lvgl.widget.hide:
+                              id: code_display
+                        widgets:
+                          - label:
+                              text: "OK"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+
+              # ARM buttons — y=382  h=78  bottom=460
+              - obj:
+                  id: arm_buttons_row
+                  x: 10
+                  y: 382
+                  width: 460
+                  height: 78
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: id(pending_action) = 1;
+                          - if:
+                              condition:
+                                lambda: return id(arm_requires_code);
+                              then:
+                                - lvgl.widget.show:
+                                    id: code_display
+                              else:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_away
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                        widgets:
+                          - label:
+                              text: "\U000F033E"
+                              align: CENTER
+                              text_font: mdi_icons
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: id(pending_action) = 2;
+                          - if:
+                              condition:
+                                lambda: return id(arm_requires_code);
+                              then:
+                                - lvgl.widget.show:
+                                    id: code_display
+                              else:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_home
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                        widgets:
+                          - label:
+                              text: "\uF015"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 78
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: id(pending_action) = 3;
+                          - if:
+                              condition:
+                                lambda: return id(arm_requires_code);
+                              then:
+                                - lvgl.widget.show:
+                                    id: code_display
+                              else:
+                                - homeassistant.service:
+                                    service: alarm_control_panel.alarm_arm_night
+                                    data:
+                                      entity_id: alarm_control_panel.home_alarm
+                        widgets:
+                          - label:
+                              text: "\U000F0594"
+                              align: CENTER
+                              text_font: mdi_icons
+                              text_color: 0xffffff
+
+              # DISARM button — shown when armed, hidden when disarmed
+              - button:
+                  id: disarm_btn
+                  x: 10
+                  y: 382
+                  width: 460
+                  height: 78
+                  bg_color: 0xe94560
+                  hidden: true
+                  on_press:
+                    - lambda: id(pending_action) = 0;
+                    - if:
+                        condition:
+                          lambda: return id(disarm_requires_code);
+                        then:
+                          - lvgl.widget.show:
+                              id: code_display
+                        else:
+                          - homeassistant.service:
+                              service: alarm_control_panel.alarm_disarm
+                              data:
+                                entity_id: alarm_control_panel.home_alarm
+                                code: ""
+                  widgets:
+                    - label:
+                        text: "\U000F0FF2"
+                        align: CENTER
+                        text_font: mdi_icons
+                        text_color: 0xffffff
