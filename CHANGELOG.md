@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.1.0...v1.2.0) (2026-04-18)
+
+
+### Features
+
+* add thermostat panel and N-page swipe navigation orchestrator ([08c7808](https://github.com/HomeOps/esphome-hass-panels/commit/08c780847ad08140704a352e1b2c84f155571043))
+* add thermostat panel and N-page swipe navigation orchestrator ([9a74dad](https://github.com/HomeOps/esphome-hass-panels/commit/9a74dad262cf420afb7ce74dcaf7691da2c1796b))
+
 ## [1.1.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.0.0...v1.1.0) (2026-04-18)
 
 
