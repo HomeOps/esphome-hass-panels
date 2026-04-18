@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.0.0...v1.1.0) (2026-04-18)
+
+
+### Features
+
+* **alarm-keypad:** add alarm_entity_id substitution and PIN label feedback ([#4](https://github.com/HomeOps/esphome-hass-panels/issues/4)) ([b28ef70](https://github.com/HomeOps/esphome-hass-panels/commit/b28ef708291bd7a81b348883254c556799162737))
+
 ## 1.0.0 (2026-04-18)
 
 
