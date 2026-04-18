@@ -23,7 +23,7 @@ jobs:
         run: yamllint -d relaxed .
 
   validate:
-    name: ESPHome Config Validation
+    name: ESPHome Config Validation (alarm + thermostat)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,5 +38,5 @@ jobs:
         # No valid keys in test fixtures — strip the encryption block
         run: sed -i '/^  encryption:/,/^    key:/d' esp32-alarm-keypad.yaml
 
-      - name: Validate ESPHome config
+      - name: Validate full config (alarm keypad + thermostat + nav)
         run: esphome config esp32-alarm-keypad.yaml

@@ -48,6 +48,10 @@ substitutions:
   thermostat_temp_min: "16.0"
   thermostat_temp_max: "30.0"
   thermostat_temp_step: "0.5"
+  # Navigation — register both pages in the swipe cycle
+  nav_home_page: alarm_page
+  nav_page_1: thermostat_page
+  nav_page_count: "2"
 
 packages:
   board: !include packages/board.yaml
