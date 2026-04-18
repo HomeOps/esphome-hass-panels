@@ -1,0 +1,210 @@
+# Garage Door Remote — M5Stack Atom Lite WiFi remote for HA garage door covers
+#
+# Required substitution (set in device YAML):
+#   cover_entity_id — HA cover entity to control, e.g. cover.garage_door
+#
+# Optional overrides (defaults below):
+#   flash_interval, steady_brightness, flash_brightness
+#   color_open_r/g/b, color_closed_r/g/b, color_standby_r/g/b
+#   color_wifi_down_r/g/b, color_ha_down_r/g/b
+
+substitutions:
+  flash_interval: 300ms
+  steady_brightness: "0.3"
+  flash_brightness: "0.8"
+
+  color_open_r: "1.0"
+  color_open_g: "0.3"
+  color_open_b: "0.0"
+
+  color_closed_r: "0.0"
+  color_closed_g: "1.0"
+  color_closed_b: "0.0"
+
+  color_standby_r: "0.0"
+  color_standby_g: "0.0"
+  color_standby_b: "1.0"
+
+  color_wifi_down_r: "1.0"
+  color_wifi_down_g: "0.0"
+  color_wifi_down_b: "0.0"
+
+  color_ha_down_r: "1.0"
+  color_ha_down_g: "1.0"
+  color_ha_down_b: "1.0"
+
+# Button — GPIO39 on M5Stack Atom Lite
+# Calls cover.open/close/stop on the HA entity based on current door state.
+binary_sensor:
+  - platform: gpio
+    id: atom_button
+    pin:
+      number: GPIO39
+      inverted: true
+    filters:
+      - delayed_on: 20ms
+    on_click:
+      - if:
+          condition:
+            lambda: 'return id(ha_garage_state).state == "closed";'
+          then:
+            - homeassistant.service:
+                service: cover.open_cover
+                data:
+                  entity_id: ${cover_entity_id}
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(ha_garage_state).state == "open";'
+                then:
+                  - homeassistant.service:
+                      service: cover.close_cover
+                      data:
+                        entity_id: ${cover_entity_id}
+                else:
+                  - if:
+                      condition:
+                        lambda: |-
+                          auto s = id(ha_garage_state).state;
+                          return s == "opening" || s == "closing";
+                      then:
+                        - homeassistant.service:
+                            service: cover.stop_cover
+                            data:
+                              entity_id: ${cover_entity_id}
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_garage_state
+    entity_id: ${cover_entity_id}
+
+# WS2812 LED on GPIO27
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    pin: GPIO27
+    num_leds: 1
+    chipset: ws2812
+    rgb_order: GRB
+    restore_mode: ALWAYS_OFF
+    effects:
+      - strobe:
+          name: strobe_red
+          colors:
+            - state: true
+              duration: ${flash_interval}
+              red: ${color_wifi_down_r}
+              green: ${color_wifi_down_g}
+              blue: ${color_wifi_down_b}
+              brightness: ${flash_brightness}
+            - state: false
+              duration: ${flash_interval}
+      - strobe:
+          name: strobe_white
+          colors:
+            - state: true
+              duration: ${flash_interval}
+              red: ${color_ha_down_r}
+              green: ${color_ha_down_g}
+              blue: ${color_ha_down_b}
+              brightness: ${flash_brightness}
+            - state: false
+              duration: ${flash_interval}
+      - strobe:
+          name: strobe_orange
+          colors:
+            - state: true
+              duration: ${flash_interval}
+              red: ${color_open_r}
+              green: ${color_open_g}
+              blue: ${color_open_b}
+              brightness: ${flash_brightness}
+            - state: false
+              duration: ${flash_interval}
+      - strobe:
+          name: strobe_green
+          colors:
+            - state: true
+              duration: ${flash_interval}
+              red: ${color_closed_r}
+              green: ${color_closed_g}
+              blue: ${color_closed_b}
+              brightness: ${flash_brightness}
+            - state: false
+              duration: ${flash_interval}
+
+# LED state machine — polls every 500ms
+# Priority: wifi down → flashing red
+#           ha disconnected or state not yet received → flashing white
+#           door state → solid or flashing color
+interval:
+  - interval: 500ms
+    then:
+      - if:
+          condition:
+            not:
+              wifi.connected:
+          then:
+            - light.turn_on:
+                id: status_led
+                effect: strobe_red
+          else:
+            - if:
+                condition:
+                  or:
+                    - not:
+                        api.connected:
+                    - lambda: 'return id(ha_garage_state).state.empty();'
+                then:
+                  - light.turn_on:
+                      id: status_led
+                      effect: strobe_white
+                else:
+                  - lambda: |-
+                      auto s = id(ha_garage_state).state;
+                      ESP_LOGD("garage", "Door state: %s", s.c_str());
+
+                      if (s == "opening") {
+                        id(status_led).turn_on()
+                          .set_effect("strobe_orange")
+                          .perform();
+                        return;
+                      }
+
+                      if (s == "closing") {
+                        id(status_led).turn_on()
+                          .set_effect("strobe_green")
+                          .perform();
+                        return;
+                      }
+
+                      if (s == "open") {
+                        id(status_led).turn_on()
+                          .set_effect("none")
+                          .set_red(${color_open_r})
+                          .set_green(${color_open_g})
+                          .set_blue(${color_open_b})
+                          .set_brightness(${steady_brightness})
+                          .perform();
+                        return;
+                      }
+
+                      if (s == "closed") {
+                        id(status_led).turn_on()
+                          .set_effect("none")
+                          .set_red(${color_closed_r})
+                          .set_green(${color_closed_g})
+                          .set_blue(${color_closed_b})
+                          .set_brightness(${steady_brightness})
+                          .perform();
+                        return;
+                      }
+
+                      // unknown / unavailable → standby blue
+                      id(status_led).turn_on()
+                        .set_effect("none")
+                        .set_red(${color_standby_r})
+                        .set_green(${color_standby_g})
+                        .set_blue(${color_standby_b})
+                        .set_brightness(${steady_brightness})
+                        .perform();
