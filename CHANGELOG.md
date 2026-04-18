@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.3.0...v1.4.0) (2026-04-18)
+
+
+### Features
+
+* add garage-door-remote package for M5Stack Atom Lite ([5ea9d6d](https://github.com/HomeOps/esphome-hass-panels/commit/5ea9d6dc33136040dd069c814747516b8ded5338))
+* add garage-door-remote package for M5Stack Atom Lite ([a0c98d2](https://github.com/HomeOps/esphome-hass-panels/commit/a0c98d2900828a3aea4fa325248a9c03be2b7c81))
+
 ## [1.3.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.2.0...v1.3.0) (2026-04-18)
 
 
