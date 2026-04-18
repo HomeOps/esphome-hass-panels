@@ -21,3 +21,18 @@ jobs:
 
       - name: Lint YAML files
         run: yamllint -d relaxed .
+
+  validate:
+    name: ESPHome Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Copy test secrets
+        run: cp tests/secrets.yaml secrets.yaml
+
+      - name: Validate ESPHome config
+        run: esphome config esp32-alarm-keypad.yaml

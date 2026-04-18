@@ -48,9 +48,33 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 |---|---|---|
 | `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
 | `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+| `display_platform` | `st7701s` | ESPHome display platform component |
 | `display_width` | `480` | Display panel width in pixels |
 | `display_height` | `480` | Display panel height in pixels |
 | `display_rotation` | `270` | LVGL display rotation in degrees (0, 90, 180, 270) |
+| `display_color_order` | `RGB` | Panel color byte order |
+| `display_invert_colors` | `False` | Invert display colors |
+| `display_spi_mode` | `MODE3` | SPI mode for display init |
+| `display_data_rate` | `2MHz` | SPI data rate for display init |
+| `display_pclk_frequency` | `12MHz` | Pixel clock frequency |
+| `display_pclk_inverted` | `False` | Invert pixel clock |
+| `display_hsync_pulse_width` | `8` | Horizontal sync pulse width |
+| `display_hsync_front_porch` | `10` | Horizontal sync front porch |
+| `display_hsync_back_porch` | `20` | Horizontal sync back porch |
+| `display_vsync_pulse_width` | `8` | Vertical sync pulse width |
+| `display_vsync_front_porch` | `10` | Vertical sync front porch |
+| `display_vsync_back_porch` | `10` | Vertical sync back porch |
+| `display_cs_pin` | `39` | Display chip-select GPIO |
+| `display_de_pin` | `18` | Display data-enable GPIO |
+| `display_hsync_pin` | `16` | Horizontal sync GPIO |
+| `display_vsync_pin` | `17` | Vertical sync GPIO |
+| `display_pclk_pin` | `21` | Pixel clock GPIO |
+| `spi_clk_pin` | `GPIO48` | SPI clock GPIO (display init bus) |
+| `spi_mosi_pin` | `GPIO47` | SPI MOSI GPIO (display init bus) |
+| `i2c_sda_pin` | `GPIO19` | I2C SDA GPIO (touch controller) |
+| `i2c_scl_pin` | `45` | I2C SCL GPIO (touch controller) |
+| `touchscreen_platform` | `gt911` | ESPHome touchscreen platform component |
+| `backlight_pin` | `GPIO38` | Backlight PWM GPIO |
 
 Override them on the command line or in a per-device YAML:
 
