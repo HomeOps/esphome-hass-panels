@@ -33,12 +33,93 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
 
-## File
+## Files
 
 | File | Description |
 |---|---|
-| `home-alarm-keypad-downstairs.yaml` | ESPHome configuration |
+| `esp32-alarm-keypad.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C |
+| `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
+| `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
+
+### Architecture
+
+The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
+
+```
+esp32-alarm-keypad.yaml          ← substitutions + device setup
+  ├─ packages/board.yaml         ← hardware peripherals (swappable per board)
+  └─ packages/alarm-keypad-ui.yaml  ← alarm LVGL page (reusable UI component)
+```
+
+Each UI package contributes its own LVGL **page**. To add more panels
+(e.g. a thermostat) on a larger screen, include additional UI packages and
+add swipe gestures or tab navigation in the main YAML to switch between pages.
+
+## Substitutions
+
+The YAML uses ESPHome [substitutions](https://esphome.io/components/substitutions) so a single config can be reused for multiple keypads:
+
+| Variable | Default | Description |
+|---|---|---|
+| `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
+| `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+| `display_platform` | `st7701s` | ESPHome display platform component |
+| `display_width` | `480` | Display panel width in pixels |
+| `display_height` | `480` | Display panel height in pixels |
+| `display_rotation` | `270` | LVGL display rotation in degrees (0, 90, 180, 270) |
+| `display_color_order` | `RGB` | Panel color byte order |
+| `display_invert_colors` | `False` | Invert display colors |
+| `display_spi_mode` | `MODE3` | SPI mode for display init |
+| `display_data_rate` | `2MHz` | SPI data rate for display init |
+| `display_pclk_frequency` | `12MHz` | Pixel clock frequency |
+| `display_pclk_inverted` | `False` | Invert pixel clock |
+| `display_hsync_pulse_width` | `8` | Horizontal sync pulse width |
+| `display_hsync_front_porch` | `10` | Horizontal sync front porch |
+| `display_hsync_back_porch` | `20` | Horizontal sync back porch |
+| `display_vsync_pulse_width` | `8` | Vertical sync pulse width |
+| `display_vsync_front_porch` | `10` | Vertical sync front porch |
+| `display_vsync_back_porch` | `10` | Vertical sync back porch |
+| `display_cs_pin` | `39` | Display chip-select GPIO |
+| `display_de_pin` | `18` | Display data-enable GPIO |
+| `display_hsync_pin` | `16` | Horizontal sync GPIO |
+| `display_vsync_pin` | `17` | Vertical sync GPIO |
+| `display_pclk_pin` | `21` | Pixel clock GPIO |
+| `spi_clk_pin` | `GPIO48` | SPI clock GPIO (display init bus) |
+| `spi_mosi_pin` | `GPIO47` | SPI MOSI GPIO (display init bus) |
+| `i2c_sda_pin` | `GPIO19` | I2C SDA GPIO (touch controller) |
+| `i2c_scl_pin` | `45` | I2C SCL GPIO (touch controller) |
+| `touchscreen_platform` | `gt911` | ESPHome touchscreen platform component |
+| `backlight_pin` | `GPIO38` | Backlight PWM GPIO |
+
+Override them on the command line or in a per-device YAML:
+
+```yaml
+# home-alarm-keypad-downstairs.yaml
+substitutions:
+  name: home-alarm-keypad-downstairs
+  friendly_name: Home Alarm Keypad Downstairs
+
+<<: !include esp32-alarm-keypad.yaml
+```
+
+To compose multiple UI panels on a larger screen, add more packages:
+
+```yaml
+# home-panel.yaml — alarm + thermostat on a 800x480 display
+substitutions:
+  name: home-panel
+  friendly_name: Home Panel
+  display_width: "800"
+  display_height: "480"
+  display_rotation: "0"
+
+packages:
+  board: !include packages/board.yaml
+  alarm_ui: !include packages/alarm-keypad-ui.yaml
+  thermostat_ui: !include packages/thermostat-ui.yaml
+```
 
 ## secrets.yaml format
 

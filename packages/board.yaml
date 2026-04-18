@@ -1,0 +1,78 @@
+# Board hardware — Guition ESP32-S3-4848S040
+# All pins, display timing, and peripheral config for this specific board.
+# Override substitutions in the main YAML to target a different board.
+#
+# References:
+#   https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
+#   https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
+
+# Backlight — ${backlight_pin}, PWM via LEDC
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: ${backlight_pin}
+    frequency: 150Hz
+    min_power: 0.01
+    zero_means_zero: true
+
+light:
+  - platform: monochromatic
+    name: Backlight
+    id: display_backlight
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 1s
+
+# SPI bus — display init/config only (display data is RGB parallel)
+spi:
+  - id: lcd_spi
+    clk_pin: ${spi_clk_pin}
+    mosi_pin: ${spi_mosi_pin}
+
+# I2C bus — touch controller
+i2c:
+  id: touchscreen_bus
+  sda: ${i2c_sda_pin}
+  scl:
+    number: ${i2c_scl_pin}
+    ignore_strapping_warning: true
+
+# ${display_platform} — 16-bit RGB parallel interface, ${display_width}x${display_height}
+display:
+  - platform: ${display_platform}
+    id: tft_display
+    dimensions:
+      width: ${display_width}
+      height: ${display_height}
+    spi_mode: ${display_spi_mode}
+    data_rate: ${display_data_rate}
+    color_order: ${display_color_order}
+    invert_colors: ${display_invert_colors}
+    cs_pin: ${display_cs_pin}
+    de_pin: ${display_de_pin}
+    hsync_pin: ${display_hsync_pin}
+    vsync_pin: ${display_vsync_pin}
+    pclk_pin: ${display_pclk_pin}
+    pclk_frequency: ${display_pclk_frequency}
+    pclk_inverted: ${display_pclk_inverted}
+    hsync_pulse_width: ${display_hsync_pulse_width}
+    hsync_front_porch: ${display_hsync_front_porch}
+    hsync_back_porch: ${display_hsync_back_porch}
+    vsync_pulse_width: ${display_vsync_pulse_width}
+    vsync_front_porch: ${display_vsync_front_porch}
+    vsync_back_porch: ${display_vsync_back_porch}
+    update_interval: never
+    auto_clear_enabled: False
+    init_sequence:
+      - 1
+      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]
+      - [0xCD, 0x00]
+    data_pins:
+      red:   [11, 12, 13, 14,  0]
+      green: [ 8, 20,  3, 46,  9, 10]
+      blue:  [ 4,  5,  6,  7, 15]
+
+touchscreen:
+  - platform: ${touchscreen_platform}
+    id: tft_touch
+    display: tft_display

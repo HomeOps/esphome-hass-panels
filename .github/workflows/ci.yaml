@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML files
+        run: yamllint -d relaxed .
+
+  validate:
+    name: ESPHome Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Copy test secrets
+        run: cp tests/secrets.yaml secrets.yaml
+
+      - name: Disable API encryption for CI
+        # No valid keys in test fixtures — strip the encryption block
+        run: sed -i '/^  encryption:/,/^    key:/d' esp32-alarm-keypad.yaml
+
+      - name: Validate ESPHome config
+        run: esphome config esp32-alarm-keypad.yaml

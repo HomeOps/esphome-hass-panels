@@ -1,0 +1,92 @@
+# ESP32 Alarm Keypad — LVGL keypad UI wired to Home Assistant alarm
+# Board:   Guition ESP32-S3-4848S040
+# Sources:
+#   Pin map + display config: https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
+#   Full community config:    https://github.com/esphome/esphome-devices/blob/main/src/docs/devices/Guition-ESP32-S3-4848S040/index.md
+#   Board overview:           https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
+
+substitutions:
+  name: esp32-alarm-keypad
+  friendly_name: ESP32 Alarm Keypad
+  # Display panel
+  display_platform: "st7701s"
+  display_width: "480"
+  display_height: "480"
+  display_rotation: "270"
+  display_color_order: "RGB"
+  display_invert_colors: "False"
+  display_spi_mode: "MODE3"
+  display_data_rate: "2MHz"
+  display_pclk_frequency: "12MHz"
+  display_pclk_inverted: "False"
+  display_hsync_pulse_width: "8"
+  display_hsync_front_porch: "10"
+  display_hsync_back_porch: "20"
+  display_vsync_pulse_width: "8"
+  display_vsync_front_porch: "10"
+  display_vsync_back_porch: "10"
+  # Display pins
+  display_cs_pin: "39"
+  display_de_pin: "18"
+  display_hsync_pin: "16"
+  display_vsync_pin: "17"
+  display_pclk_pin: "21"
+  # SPI bus (display init)
+  spi_clk_pin: "GPIO48"
+  spi_mosi_pin: "GPIO47"
+  # I2C bus (touch controller)
+  i2c_sda_pin: "GPIO19"
+  i2c_scl_pin: "45"
+  # Touchscreen
+  touchscreen_platform: "gt911"
+  # Backlight
+  backlight_pin: "GPIO38"
+
+packages:
+  board: !include packages/board.yaml
+  alarm_ui: !include packages/alarm-keypad-ui.yaml
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+# Switched from arduino to esp-idf — required for RGB panel + LVGL
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+# 8MB octal PSRAM required for LVGL frame buffer
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    on_begin:
+      # Prevent display flickering during OTA flash
+      - light.turn_off:
+          id: display_backlight
+          transition_length: 0s
+      - lambda: "id(display_backlight).loop();"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: !secret ap_ssid
+    password: !secret ap_password
+
+captive_portal:
+
+# LVGL top-level settings — rotation is board-specific;
+# pages are contributed by UI packages (alarm_ui, etc.)
+lvgl:
+  rotation: ${display_rotation}
