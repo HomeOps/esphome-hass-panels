@@ -72,7 +72,30 @@ display:
       green: [ 8, 20,  3, 46,  9, 10]
       blue:  [ 4,  5,  6,  7, 15]
 
+# Touch-state globals — populated by on_touch, consumed by nav.yaml scripts
+globals:
+  - id: nav_swipe_start_x
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: nav_last_touch_x
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: nav_swipe_dx
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+# Contract: nav.yaml must define scripts nav_touch and nav_release
 touchscreen:
   - platform: ${touchscreen_platform}
     id: tft_touch
     display: tft_display
+    on_touch:
+      - lambda: |-
+          if (id(nav_swipe_start_x) == -1) id(nav_swipe_start_x) = touch.x;
+          id(nav_last_touch_x) = touch.x;
+      - script.execute: nav_touch
+    on_release:
+      - script.execute: nav_release

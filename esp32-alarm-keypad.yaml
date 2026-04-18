@@ -43,10 +43,17 @@ substitutions:
   backlight_pin: "GPIO38"
   # Alarm panel entity
   alarm_entity_id: alarm_control_panel.home_alarm
+  # Thermostat entity
+  thermostat_entity_id: climate.thermostat
+  thermostat_temp_min: "16.0"
+  thermostat_temp_max: "30.0"
+  thermostat_temp_step: "0.5"
 
 packages:
   board: !include packages/board.yaml
   alarm_ui: !include packages/alarm-keypad-ui.yaml
+  thermostat_ui: !include packages/thermostat-ui.yaml
+  nav: !include packages/nav.yaml
 
 esphome:
   name: ${name}
@@ -89,6 +96,6 @@ wifi:
 captive_portal:
 
 # LVGL top-level settings — rotation is board-specific;
-# pages are contributed by UI packages (alarm_ui, etc.)
+# pages are contributed by UI packages (alarm_ui, thermostat_ui, etc.)
 lvgl:
   rotation: ${display_rotation}

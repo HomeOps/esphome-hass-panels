@@ -1,0 +1,47 @@
+# nav.yaml — Page navigation orchestrator
+#
+# Manages swipe navigation and auto-return between any number of LVGL pages.
+# Panels (alarm_ui, thermostat_ui, etc.) are completely unaware of this file.
+#
+# Default behaviour (override in your instance YAML):
+#   nav_home_page:          alarm_page   — page shown on boot and after timeout
+#   nav_auto_return_delay:  30s          — idle time before returning home
+#
+# Contract with board.yaml:
+#   board.yaml populates nav_swipe_start_x / nav_last_touch_x / nav_swipe_dx
+#   and calls nav_touch / nav_release on each touch event.
+
+substitutions:
+  nav_home_page: alarm_page
+  nav_auto_return_delay: 30s
+
+script:
+  # Called by board.yaml on every touch — resets the idle timer
+  - id: nav_touch
+    mode: restart
+    then:
+      - script.execute: auto_return   # restart the 30-s countdown
+
+  # Called by board.yaml on touch release — detects swipe direction
+  - id: nav_release
+    then:
+      - lambda: |-
+          id(nav_swipe_dx) = id(nav_last_touch_x) - id(nav_swipe_start_x);
+          id(nav_swipe_start_x) = -1;
+      - if:
+          condition:
+            lambda: return id(nav_swipe_dx) < -80;
+          then:
+            - lvgl.page.next:
+      - if:
+          condition:
+            lambda: return id(nav_swipe_dx) > 80;
+          then:
+            - lvgl.page.previous:
+
+  # Auto-return: returns to home page after idle timeout
+  - id: auto_return
+    mode: restart
+    then:
+      - delay: ${nav_auto_return_delay}
+      - lvgl.page.show: ${nav_home_page}
