@@ -36,7 +36,7 @@ jobs:
 
       - name: Disable API encryption for CI
         # No valid keys in test fixtures — strip the encryption block
-        run: sed -i '/^  encryption:/,/^    key:/d' esp32-alarm-keypad.yaml
+        run: sed -i '/^  encryption:/,/^    key:/d' esp32-hass-panel.yaml
 
       - name: Validate full config (alarm keypad + thermostat + nav)
-        run: esphome config esp32-alarm-keypad.yaml
+        run: esphome config esp32-hass-panel.yaml

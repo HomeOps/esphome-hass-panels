@@ -52,7 +52,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 | File | Description |
 |---|---|
-| `esp32-alarm-keypad.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `esp32-hass-panel.yaml` | Main entry point — device identity, connectivity, and package includes |
 | `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C, touch-state globals |
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
@@ -65,7 +65,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
 
 ```
-esp32-alarm-keypad.yaml              ← substitutions + device setup
+esp32-hass-panel.yaml                ← substitutions + device setup
   ├─ packages/board.yaml             ← hardware peripherals (swappable per board)
   ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
@@ -83,8 +83,8 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 
 | Variable | Default | Description |
 |---|---|---|
-| `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
-| `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+| `name` | `esp32-hass-panel` | Device name (used for hostname, mDNS, etc.) |
+| `friendly_name` | `ESP32 Home Panel` | Human-readable name shown in Home Assistant |
 | `display_platform` | `st7701s` | ESPHome display platform component |
 | `display_width` | `480` | Display panel width in pixels |
 | `display_height` | `480` | Display panel height in pixels |
@@ -135,7 +135,7 @@ substitutions:
   name: home-alarm-keypad-downstairs
   friendly_name: Home Alarm Keypad Downstairs
 
-<<: !include esp32-alarm-keypad.yaml
+<<: !include esp32-hass-panel.yaml
 ```
 
 To compose multiple UI panels on a larger screen, add more packages and register the pages:

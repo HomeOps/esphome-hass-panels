@@ -1,4 +1,4 @@
-# ESP32 Alarm Keypad — LVGL keypad UI wired to Home Assistant alarm
+# ESP32 Home Panel — LVGL touch UI wired to Home Assistant (alarm + thermostat)
 # Board:   Guition ESP32-S3-4848S040
 # Sources:
 #   Pin map + display config: https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
@@ -6,8 +6,8 @@
 #   Board overview:           https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
 
 substitutions:
-  name: esp32-alarm-keypad
-  friendly_name: ESP32 Alarm Keypad
+  name: esp32-hass-panel
+  friendly_name: ESP32 Home Panel
   # Display panel
   display_platform: "st7701s"
   display_width: "480"
