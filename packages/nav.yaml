@@ -1,6 +1,8 @@
 # nav.yaml — Navigation orchestrator
 #
 # Responsibilities:
+#   - Persistent top navbar with left/right arrows and a status label.
+#     The status label shows alarm state (alarm page) or preset·temp (tstat page).
 #   - Full-screen "Connecting..." overlay shown on boot and when HA disconnects.
 #     Panels never see or handle this state.
 #   - Swipe left/right cycles the registered panel pages by index.
@@ -19,6 +21,11 @@
 # Contract with board.yaml:
 #   board.yaml populates globals nav_swipe_start_x / nav_last_touch_x / nav_swipe_dx
 #   and calls scripts nav_touch / nav_release on every touch event.
+#
+# Contract with UI packages (alarm-keypad-ui, thermostat-ui):
+#   Each panel writes its formatted status string to g_nav_alarm_status or
+#   g_nav_tstat_status, then calls nav_refresh_status.  nav.yaml renders
+#   whichever string matches the active nav_idx.
 
 substitutions:
   nav_home_page: alarm_page
@@ -27,6 +34,7 @@ substitutions:
   nav_page_3: alarm_page
   nav_page_count: "1"
   nav_auto_return_delay: 30s
+  nav_bar_height: "60"        # pixels — page content must start below this value
 
 globals:
   - id: nav_connected
@@ -37,22 +45,33 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  # Status strings written by UI packages; nav_refresh_status picks the right one.
+  - id: g_nav_alarm_status
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_nav_tstat_status
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
-# Show connecting page on boot; switch to home when HA API connects
+# Show connecting overlay on boot; switch to home page when HA API connects.
 binary_sensor:
   - platform: status
     id: nav_api_status
     on_press:
       - lambda: id(nav_connected) = true; id(nav_idx) = 0;
-      - script.stop: connecting_anim
       - lvgl.widget.hide:
           id: connecting_overlay
-      - lvgl.page.show: ${nav_home_page}
+      - lvgl.widget.show:
+          id: navbar
+      - script.execute: nav_show_page
     on_release:
       - lambda: id(nav_connected) = false; id(nav_idx) = 0;
+      - lvgl.widget.hide:
+          id: navbar
       - lvgl.widget.show:
           id: connecting_overlay
-      - script.execute: connecting_anim
 
 esphome:
   on_boot:
@@ -60,16 +79,15 @@ esphome:
     then:
       - lvgl.widget.show:
           id: connecting_overlay
-      - script.execute: connecting_anim
 
 script:
-  # Called by board.yaml on every touch — resets idle timer
+  # Called by board.yaml on every touch — resets idle timer.
   - id: nav_touch
     mode: restart
     then:
       - script.execute: auto_return
 
-  # Called by board.yaml on touch release — detects swipe direction
+  # Called by board.yaml on touch release — detects swipe direction.
   - id: nav_release
     then:
       - lambda: |-
@@ -81,38 +99,43 @@ script:
             lambda: return id(nav_connected) && id(nav_swipe_dx) < -80;
           then:
             - lambda: id(nav_idx) = (id(nav_idx) + 1) % ${nav_page_count};
-            - if:
-                condition: {lambda: return id(nav_idx) == 0;}
-                then: [{lvgl.page.show: "${nav_home_page}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 1;}
-                then: [{lvgl.page.show: "${nav_page_1}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 2;}
-                then: [{lvgl.page.show: "${nav_page_2}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 3;}
-                then: [{lvgl.page.show: "${nav_page_3}"}]
+            - script.execute: nav_show_page
       # Swipe right → previous panel
       - if:
           condition:
             lambda: return id(nav_connected) && id(nav_swipe_dx) > 80;
           then:
             - lambda: id(nav_idx) = (id(nav_idx) + ${nav_page_count} - 1) % ${nav_page_count};
-            - if:
-                condition: {lambda: return id(nav_idx) == 0;}
-                then: [{lvgl.page.show: "${nav_home_page}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 1;}
-                then: [{lvgl.page.show: "${nav_page_1}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 2;}
-                then: [{lvgl.page.show: "${nav_page_2}"}]
-            - if:
-                condition: {lambda: return id(nav_idx) == 3;}
-                then: [{lvgl.page.show: "${nav_page_3}"}]
+            - script.execute: nav_show_page
 
-  # Auto-return: only fires when connected; goes home and resets index
+  # Show the page that matches nav_idx, then refresh the status label.
+  - id: nav_show_page
+    then:
+      - if:
+          condition: {lambda: return id(nav_idx) == 0;}
+          then: [{lvgl.page.show: "${nav_home_page}"}]
+      - if:
+          condition: {lambda: return id(nav_idx) == 1;}
+          then: [{lvgl.page.show: "${nav_page_1}"}]
+      - if:
+          condition: {lambda: return id(nav_idx) == 2;}
+          then: [{lvgl.page.show: "${nav_page_2}"}]
+      - if:
+          condition: {lambda: return id(nav_idx) == 3;}
+          then: [{lvgl.page.show: "${nav_page_3}"}]
+      - script.execute: nav_refresh_status
+
+  # Update the navbar status label from the active panel's status string.
+  # UI packages call this after updating g_nav_alarm_status / g_nav_tstat_status.
+  - id: nav_refresh_status
+    then:
+      - lambda: |-
+          if (id(nav_idx) == 0)
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_alarm_status).c_str());
+          else
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_tstat_status).c_str());
+
+  # Auto-return: only fires when connected; resets to home page.
   - id: auto_return
     mode: restart
     then:
@@ -122,28 +145,91 @@ script:
             lambda: return id(nav_connected);
           then:
             - lambda: id(nav_idx) = 0;
-            - lvgl.page.show: ${nav_home_page}
+            - script.execute: nav_show_page
 
-  # Three-dot animation while connecting
-  - id: connecting_anim
-    mode: restart
-    then:
-      - while:
-          condition:
-            lambda: return true;
-          then:
-            - lvgl.label.update: {id: lbl_connecting_dots, text: "●  ○  ○"}
-            - delay: 400ms
-            - lvgl.label.update: {id: lbl_connecting_dots, text: "○  ●  ○"}
-            - delay: 400ms
-            - lvgl.label.update: {id: lbl_connecting_dots, text: "○  ○  ●"}
-            - delay: 400ms
-
-# Connecting overlay — full-screen, shown above whatever page is active.
-# Hidden once HA API connects; reshown on disconnect.
+# top_layer — always rendered above pages.
+# Declaration order: navbar first (lower z), connecting_overlay second (higher z).
+# When the overlay is shown it covers the navbar completely.
 lvgl:
   top_layer:
     widgets:
+
+      # ── Navbar ─────────────────────────────────────────────────────
+      # Hidden until HA connects (connecting_overlay covers anyway, but hidden
+      # prevents it briefly flashing on first boot before the overlay renders).
+      - obj:
+          id: navbar
+          x: 0
+          y: 0
+          width: ${display_width}
+          height: ${nav_bar_height}
+          bg_color: 0x16213e
+          bg_opa: COVER
+          radius: 0
+          border_width: 0
+          border_side: BOTTOM
+          border_color: 0x0f3460
+          pad_all: 0
+          hidden: true
+          widgets:
+
+            # Left arrow — go to previous page
+            - button:
+                id: btn_nav_left
+                x: 0
+                y: 0
+                width: ${nav_bar_height}
+                height: ${nav_bar_height}
+                bg_color: 0x16213e
+                bg_opa: COVER
+                radius: 0
+                border_width: 0
+                widgets:
+                  - label:
+                      align: CENTER
+                      text: "<"
+                      text_font: montserrat_28
+                      text_color: 0x4060a0
+                on_press:
+                  - lambda: id(nav_idx) = (id(nav_idx) + ${nav_page_count} - 1) % ${nav_page_count};
+                  - script.execute: nav_show_page
+
+            # Status label — filled by nav_refresh_status
+            - label:
+                id: lbl_nav_status
+                x: ${nav_bar_height}
+                y: 0
+                width: 360   # display_width(480) − 2 × nav_bar_height(60)
+                height: ${nav_bar_height}
+                text: ""
+                text_align: CENTER
+                text_color: 0xffffff
+                text_font: montserrat_20
+                long_mode: SCROLL_CIRCULAR
+
+            # Right arrow — go to next page
+            - button:
+                id: btn_nav_right
+                x: 420      # display_width(480) − nav_bar_height(60)
+                y: 0
+                width: ${nav_bar_height}
+                height: ${nav_bar_height}
+                bg_color: 0x16213e
+                bg_opa: COVER
+                radius: 0
+                border_width: 0
+                widgets:
+                  - label:
+                      align: CENTER
+                      text: ">"
+                      text_font: montserrat_28
+                      text_color: 0x4060a0
+                on_press:
+                  - lambda: id(nav_idx) = (id(nav_idx) + 1) % ${nav_page_count};
+                  - script.execute: nav_show_page
+
+      # ── Connecting overlay ─────────────────────────────────────────
+      # Full-screen, covers navbar. Static text only — no animation.
       - obj:
           id: connecting_overlay
           x: 0
@@ -160,20 +246,13 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                y: -30
+                y: -20
                 text: "Connecting"
                 text_font: montserrat_28
                 text_color: 0xffffff
             - label:
-                id: lbl_connecting_dots
                 align: CENTER
-                y: 10
-                text: "●  ○  ○"
-                text_font: montserrat_28
-                text_color: 0xe94560
-            - label:
-                align: CENTER
-                y: 55
+                y: 20
                 text: "to Home Assistant"
                 text_font: montserrat_14
                 text_color: 0x555555
