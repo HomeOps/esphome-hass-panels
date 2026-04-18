@@ -33,12 +33,29 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
 
-## File
+## Files
 
 | File | Description |
 |---|---|
-| `esp32-alarm-keypad.yaml` | ESPHome configuration (reusable component) |
+| `esp32-alarm-keypad.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C |
+| `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
+| `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
+
+### Architecture
+
+The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
+
+```
+esp32-alarm-keypad.yaml          ← substitutions + device setup
+  ├─ packages/board.yaml         ← hardware peripherals (swappable per board)
+  └─ packages/alarm-keypad-ui.yaml  ← alarm LVGL page (reusable UI component)
+```
+
+Each UI package contributes its own LVGL **page**. To add more panels
+(e.g. a thermostat) on a larger screen, include additional UI packages and
+add swipe gestures or tab navigation in the main YAML to switch between pages.
 
 ## Substitutions
 
@@ -85,6 +102,23 @@ substitutions:
   friendly_name: Home Alarm Keypad Downstairs
 
 <<: !include esp32-alarm-keypad.yaml
+```
+
+To compose multiple UI panels on a larger screen, add more packages:
+
+```yaml
+# home-panel.yaml — alarm + thermostat on a 800x480 display
+substitutions:
+  name: home-panel
+  friendly_name: Home Panel
+  display_width: "800"
+  display_height: "480"
+  display_rotation: "0"
+
+packages:
+  board: !include packages/board.yaml
+  alarm_ui: !include packages/alarm-keypad-ui.yaml
+  thermostat_ui: !include packages/thermostat-ui.yaml
 ```
 
 ## secrets.yaml format
