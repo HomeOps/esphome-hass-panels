@@ -34,5 +34,9 @@ jobs:
       - name: Copy test secrets
         run: cp tests/secrets.yaml secrets.yaml
 
+      - name: Disable API encryption for CI
+        # No valid keys in test fixtures — strip the encryption block
+        run: sed -i '/^  encryption:/,/^    key:/d' esp32-alarm-keypad.yaml
+
       - name: Validate ESPHome config
         run: esphome config esp32-alarm-keypad.yaml
