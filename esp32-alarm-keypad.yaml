@@ -59,7 +59,7 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'true'
-  # false = code_arm_required: false in hawa alarm config
+  # false = code_arm_required: false in Home Assistant alarm config
   - id: arm_requires_code
     type: bool
     restore_value: no
@@ -70,7 +70,7 @@ globals:
     restore_value: no
     initial_value: '0'
 
-# Subscribe to alarm state and code requirements from hawa
+# Subscribe to alarm state and code requirements from Home Assistant
 text_sensor:
   - platform: homeassistant
     id: alarm_code_arm_required
