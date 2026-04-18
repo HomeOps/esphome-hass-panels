@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.2.0...v1.3.0) (2026-04-18)
+
+
+### Features
+
+* add thermostat panel with swipe navigation orchestrator ([1549014](https://github.com/HomeOps/esphome-hass-panels/commit/15490145714c4360255d6ef8c8ff39111d60093a))
+
+
+### Bug Fixes
+
+* **ci:** add requirements.txt for pip cache and set board to esp32-s3-devkitc-1 ([2a8b5f6](https://github.com/HomeOps/esphome-hass-panels/commit/2a8b5f606e14ddb8ee8e93cc8c34ccd80876b13d))
+
 ## [1.2.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.1.0...v1.2.0) (2026-04-18)
 
 
