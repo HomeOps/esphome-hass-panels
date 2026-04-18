@@ -1,13 +1,17 @@
-# Home Alarm Keypad — Phase 3: LVGL keypad UI wired to hawa alarm
+# ESP32 Alarm Keypad — LVGL keypad UI wired to Home Assistant alarm
 # Board:   Guition ESP32-S3-4848S040
 # Sources:
 #   Pin map + display config: https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
 #   Full community config:    https://github.com/esphome/esphome-devices/blob/main/src/docs/devices/Guition-ESP32-S3-4848S040/index.md
 #   Board overview:           https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
 
+substitutions:
+  name: esp32-alarm-keypad
+  friendly_name: ESP32 Alarm Keypad
+
 esphome:
-  name: home-alarm-keypad-downstairs
-  friendly_name: Home-Alarm-KeyPad-DownStairs
+  name: ${name}
+  friendly_name: ${friendly_name}
 
 # Switched from arduino to esp-idf — required for RGB panel + LVGL
 esp32:

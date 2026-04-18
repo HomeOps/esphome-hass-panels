@@ -37,8 +37,28 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 | File | Description |
 |---|---|
-| `home-alarm-keypad-downstairs.yaml` | ESPHome configuration |
+| `esp32-alarm-keypad.yaml` | ESPHome configuration (reusable component) |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
+
+## Substitutions
+
+The YAML uses ESPHome [substitutions](https://esphome.io/components/substitutions) so a single config can be reused for multiple keypads:
+
+| Variable | Default | Description |
+|---|---|---|
+| `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
+| `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+
+Override them on the command line or in a per-device YAML:
+
+```yaml
+# home-alarm-keypad-downstairs.yaml
+substitutions:
+  name: home-alarm-keypad-downstairs
+  friendly_name: Home Alarm Keypad Downstairs
+
+<<: !include esp32-alarm-keypad.yaml
+```
 
 ## secrets.yaml format
 
