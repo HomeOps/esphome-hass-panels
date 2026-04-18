@@ -1,26 +1,73 @@
-# nav.yaml — Page navigation orchestrator
+# nav.yaml — Navigation orchestrator
 #
-# Manages swipe navigation and auto-return between any number of LVGL pages.
-# Panels (alarm_ui, thermostat_ui, etc.) are completely unaware of this file.
+# Responsibilities:
+#   - Full-screen "Connecting..." overlay shown on boot and when HA disconnects.
+#     Panels never see or handle this state.
+#   - Swipe left/right cycles the registered panel pages by index.
+#     Connecting page is NOT in the swipe cycle.
+#   - Auto-return to home page after idle timeout.
 #
-# Default behaviour (override in your instance YAML):
-#   nav_home_page:          alarm_page   — page shown on boot and after timeout
-#   nav_auto_return_delay:  30s          — idle time before returning home
+# Supports up to 4 panel pages. Register them in your instance YAML:
+#
+#   substitutions:
+#     nav_home_page:  alarm_page      # index 0, always required
+#     nav_page_1:     thermostat_page # index 1
+#     nav_page_2:     alarm_page      # unused slots default to home page (safe no-op)
+#     nav_page_3:     alarm_page
+#     nav_page_count: "2"             # how many slots are active (1–4)
 #
 # Contract with board.yaml:
-#   board.yaml populates nav_swipe_start_x / nav_last_touch_x / nav_swipe_dx
-#   and calls nav_touch / nav_release on each touch event.
+#   board.yaml populates globals nav_swipe_start_x / nav_last_touch_x / nav_swipe_dx
+#   and calls scripts nav_touch / nav_release on every touch event.
 
 substitutions:
   nav_home_page: alarm_page
+  nav_page_1: alarm_page      # unused → redirect to home (safe no-op)
+  nav_page_2: alarm_page
+  nav_page_3: alarm_page
+  nav_page_count: "1"
   nav_auto_return_delay: 30s
 
+globals:
+  - id: nav_connected
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: nav_idx
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+# Show connecting page on boot; switch to home when HA API connects
+binary_sensor:
+  - platform: status
+    id: nav_api_status
+    on_press:
+      - lambda: id(nav_connected) = true; id(nav_idx) = 0;
+      - script.stop: connecting_anim
+      - lvgl.widget.hide:
+          id: connecting_overlay
+      - lvgl.page.show: ${nav_home_page}
+    on_release:
+      - lambda: id(nav_connected) = false; id(nav_idx) = 0;
+      - lvgl.widget.show:
+          id: connecting_overlay
+      - script.execute: connecting_anim
+
+esphome:
+  on_boot:
+    priority: -100   # after LVGL is initialised
+    then:
+      - lvgl.widget.show:
+          id: connecting_overlay
+      - script.execute: connecting_anim
+
 script:
-  # Called by board.yaml on every touch — resets the idle timer
+  # Called by board.yaml on every touch — resets idle timer
   - id: nav_touch
     mode: restart
     then:
-      - script.execute: auto_return   # restart the 30-s countdown
+      - script.execute: auto_return
 
   # Called by board.yaml on touch release — detects swipe direction
   - id: nav_release
@@ -28,20 +75,105 @@ script:
       - lambda: |-
           id(nav_swipe_dx) = id(nav_last_touch_x) - id(nav_swipe_start_x);
           id(nav_swipe_start_x) = -1;
+      # Swipe left → next panel
       - if:
           condition:
-            lambda: return id(nav_swipe_dx) < -80;
+            lambda: return id(nav_connected) && id(nav_swipe_dx) < -80;
           then:
-            - lvgl.page.next:
+            - lambda: id(nav_idx) = (id(nav_idx) + 1) % ${nav_page_count};
+            - if:
+                condition: {lambda: return id(nav_idx) == 0;}
+                then: [{lvgl.page.show: "${nav_home_page}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 1;}
+                then: [{lvgl.page.show: "${nav_page_1}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 2;}
+                then: [{lvgl.page.show: "${nav_page_2}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 3;}
+                then: [{lvgl.page.show: "${nav_page_3}"}]
+      # Swipe right → previous panel
       - if:
           condition:
-            lambda: return id(nav_swipe_dx) > 80;
+            lambda: return id(nav_connected) && id(nav_swipe_dx) > 80;
           then:
-            - lvgl.page.previous:
+            - lambda: id(nav_idx) = (id(nav_idx) + ${nav_page_count} - 1) % ${nav_page_count};
+            - if:
+                condition: {lambda: return id(nav_idx) == 0;}
+                then: [{lvgl.page.show: "${nav_home_page}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 1;}
+                then: [{lvgl.page.show: "${nav_page_1}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 2;}
+                then: [{lvgl.page.show: "${nav_page_2}"}]
+            - if:
+                condition: {lambda: return id(nav_idx) == 3;}
+                then: [{lvgl.page.show: "${nav_page_3}"}]
 
-  # Auto-return: returns to home page after idle timeout
+  # Auto-return: only fires when connected; goes home and resets index
   - id: auto_return
     mode: restart
     then:
       - delay: ${nav_auto_return_delay}
-      - lvgl.page.show: ${nav_home_page}
+      - if:
+          condition:
+            lambda: return id(nav_connected);
+          then:
+            - lambda: id(nav_idx) = 0;
+            - lvgl.page.show: ${nav_home_page}
+
+  # Three-dot animation while connecting
+  - id: connecting_anim
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: return true;
+          then:
+            - lvgl.label.update: {id: lbl_connecting_dots, text: "●  ○  ○"}
+            - delay: 400ms
+            - lvgl.label.update: {id: lbl_connecting_dots, text: "○  ●  ○"}
+            - delay: 400ms
+            - lvgl.label.update: {id: lbl_connecting_dots, text: "○  ○  ●"}
+            - delay: 400ms
+
+# Connecting overlay — full-screen, shown above whatever page is active.
+# Hidden once HA API connects; reshown on disconnect.
+lvgl:
+  top_layer:
+    widgets:
+      - obj:
+          id: connecting_overlay
+          x: 0
+          y: 0
+          width: ${display_width}
+          height: ${display_height}
+          bg_color: 0x1a1a2e
+          bg_opa: COVER
+          border_width: 0
+          pad_all: 0
+          scrollbar_mode: "off"
+          scrollable: false
+          hidden: false
+          widgets:
+            - label:
+                align: CENTER
+                y: -30
+                text: "Connecting"
+                text_font: montserrat_28
+                text_color: 0xffffff
+            - label:
+                id: lbl_connecting_dots
+                align: CENTER
+                y: 10
+                text: "●  ○  ○"
+                text_font: montserrat_28
+                text_color: 0xe94560
+            - label:
+                align: CENTER
+                y: 55
+                text: "to Home Assistant"
+                text_font: montserrat_14
+                text_color: 0x555555

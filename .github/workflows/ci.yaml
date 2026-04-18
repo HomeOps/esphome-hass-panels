@@ -22,11 +22,26 @@ jobs:
       - name: Lint YAML files
         run: yamllint -d relaxed .
 
-  validate:
-    name: ESPHome Config Validation
+  compile:
+    name: ESPHome Compile (alarm + thermostat)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .esphome
+          key: pio-${{ hashFiles('esp32-hass-panel.yaml', 'packages/*.yaml') }}
+          restore-keys: pio-
 
       - name: Install ESPHome
         run: pip install esphome
@@ -36,7 +51,7 @@ jobs:
 
       - name: Disable API encryption for CI
         # No valid keys in test fixtures — strip the encryption block
-        run: sed -i '/^  encryption:/,/^    key:/d' esp32-alarm-keypad.yaml
+        run: sed -i '/^  encryption:/,/^    key:/d' esp32-hass-panel.yaml
 
-      - name: Validate ESPHome config
-        run: esphome config esp32-alarm-keypad.yaml
+      - name: Compile firmware (ESP32-S3 / esp-idf)
+        run: esphome compile esp32-hass-panel.yaml

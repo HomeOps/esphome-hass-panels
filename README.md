@@ -1,6 +1,6 @@
-# ESP32 Alarm Keypad
+# ESP32 Alarm Keypad & Thermostat Panel
 
-ESPHome firmware for a wall-mounted touch-screen alarm keypad, wired to a Home Assistant `alarm_control_panel` via the native API.
+ESPHome firmware for a wall-mounted touch-screen panel, wired to Home Assistant via the native API. Ships two swipe-navigable LVGL pages: an **alarm keypad** (`alarm_control_panel`) and a **thermostat** (`climate`).
 
 ## Hardware
 
@@ -22,6 +22,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 ## Features
 
+### Alarm keypad page
 - **PIN keypad** — 0–9, CLR, OK; entered digits shown as `*` in an overlay
 - **Arm modes** — Away (🔒), Home (🏠), Night (🌙) — MDI icon glyphs, language-neutral
 - **Dynamic disarm button** — full-width, shown only when the alarm is armed
@@ -30,6 +31,20 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
   - *Triggered* — fast red strobe on the DISARM button
   - *Armed* — static dark red
 - **PIN gating** — code entry is only shown when the HA panel requires it (`code_arm_required` / `code_disarm_required` attributes read live from HA)
+
+### Thermostat page
+- **Current & target temperature** — large readout with ± step buttons
+- **HVAC modes** — Off, Heat, Cool, Auto, Fan, Dry — 2×3 button grid, active mode highlighted
+- **Presets** — Home, Away, Sleep, Eco, Boost, Comfort — 2×3 button grid
+- **Live sync** — reads `current_temperature`, `temperature`, `hvac_action`, and `preset_mode` attributes from HA
+
+### Navigation
+- **Swipe gestures** — swipe left/right to cycle between registered pages
+- **Connecting overlay** — full-screen "Connecting…" animation shown on boot and HA disconnect; panels are hidden until the API is up
+- **Idle auto-return** — returns to the home page after a configurable timeout (default 30 s)
+- **Extensible** — supports up to 4 pages via substitutions; unused slots safely no-op
+
+### General
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
 
@@ -37,9 +52,11 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 | File | Description |
 |---|---|
-| `esp32-alarm-keypad.yaml` | Main entry point — device identity, connectivity, and package includes |
-| `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C |
+| `esp32-hass-panel.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C, touch-state globals |
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
+| `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
+| `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
 
@@ -48,14 +65,17 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
 
 ```
-esp32-alarm-keypad.yaml          ← substitutions + device setup
-  ├─ packages/board.yaml         ← hardware peripherals (swappable per board)
-  └─ packages/alarm-keypad-ui.yaml  ← alarm LVGL page (reusable UI component)
+esp32-hass-panel.yaml                ← substitutions + device setup
+  ├─ packages/board.yaml             ← hardware peripherals (swappable per board)
+  ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
+  ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
+  └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
 ```
 
-Each UI package contributes its own LVGL **page**. To add more panels
-(e.g. a thermostat) on a larger screen, include additional UI packages and
-add swipe gestures or tab navigation in the main YAML to switch between pages.
+Each UI package contributes its own LVGL **page**. The navigation package wires
+swipe gestures, a connecting overlay, and idle auto-return across all registered
+pages. To add more panels, include additional UI packages and register them in
+the `nav_page_*` substitutions.
 
 ## Substitutions
 
@@ -63,8 +83,8 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 
 | Variable | Default | Description |
 |---|---|---|
-| `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
-| `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+| `name` | `esp32-hass-panel` | Device name (used for hostname, mDNS, etc.) |
+| `friendly_name` | `ESP32 Home Panel` | Human-readable name shown in Home Assistant |
 | `display_platform` | `st7701s` | ESPHome display platform component |
 | `display_width` | `480` | Display panel width in pixels |
 | `display_height` | `480` | Display panel height in pixels |
@@ -92,6 +112,20 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `i2c_scl_pin` | `45` | I2C SCL GPIO (touch controller) |
 | `touchscreen_platform` | `gt911` | ESPHome touchscreen platform component |
 | `backlight_pin` | `GPIO38` | Backlight PWM GPIO |
+| **Alarm** | | |
+| `alarm_entity_id` | `alarm_control_panel.home_alarm` | HA alarm entity to control |
+| **Thermostat** | | |
+| `thermostat_entity_id` | `climate.thermostat` | HA climate entity to control |
+| `thermostat_temp_min` | `16.0` | Minimum settable target temperature |
+| `thermostat_temp_max` | `30.0` | Maximum settable target temperature |
+| `thermostat_temp_step` | `0.5` | Temperature increment per button press |
+| **Navigation** | | |
+| `nav_home_page` | `alarm_page` | LVGL page ID shown on connect and idle return |
+| `nav_page_1` | `alarm_page` | Page at index 1 (set to real page or leave as home) |
+| `nav_page_2` | `alarm_page` | Page at index 2 (unused slots default to home) |
+| `nav_page_3` | `alarm_page` | Page at index 3 (unused slots default to home) |
+| `nav_page_count` | `1` | Number of active pages in the swipe cycle (1–4) |
+| `nav_auto_return_delay` | `30s` | Idle time before auto-returning to home page |
 
 Override them on the command line or in a per-device YAML:
 
@@ -101,10 +135,10 @@ substitutions:
   name: home-alarm-keypad-downstairs
   friendly_name: Home Alarm Keypad Downstairs
 
-<<: !include esp32-alarm-keypad.yaml
+<<: !include esp32-hass-panel.yaml
 ```
 
-To compose multiple UI panels on a larger screen, add more packages:
+To compose multiple UI panels on a larger screen, add more packages and register the pages:
 
 ```yaml
 # home-panel.yaml — alarm + thermostat on a 800x480 display
@@ -114,11 +148,16 @@ substitutions:
   display_width: "800"
   display_height: "480"
   display_rotation: "0"
+  # Register thermostat as the second swipe page
+  nav_home_page: alarm_page
+  nav_page_1: thermostat_page
+  nav_page_count: "2"
 
 packages:
   board: !include packages/board.yaml
   alarm_ui: !include packages/alarm-keypad-ui.yaml
   thermostat_ui: !include packages/thermostat-ui.yaml
+  nav: !include packages/nav.yaml
 ```
 
 ## secrets.yaml format
@@ -134,6 +173,8 @@ ap_password: "random-string"
 
 ## Home Assistant setup
 
+### Alarm panel
+
 Add a manual alarm panel to your HA `configuration.yaml`:
 
 ```yaml
@@ -144,7 +185,13 @@ alarm_control_panel:
     code_arm_required: false
 ```
 
-The keypad subscribes to `alarm_control_panel.home_alarm` — change the entity ID in the YAML if yours differs.
+The keypad subscribes to `alarm_control_panel.home_alarm` — change the `alarm_entity_id` substitution if yours differs.
+
+### Thermostat
+
+The thermostat page subscribes to a `climate` entity. Point the `thermostat_entity_id` substitution at your climate entity (default: `climate.thermostat`). No extra HA configuration is needed beyond having the climate integration set up.
+
+### General
 
 Enable **"Allow Home Assistant actions"** on the ESPHome device page in HA after first adoption.
 

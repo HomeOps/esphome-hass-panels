@@ -9,7 +9,7 @@ ESPHome firmware for a wall-mounted touch-screen alarm keypad
 
 ## Key Files
 
-- `esp32-alarm-keypad.yaml` — Main ESPHome configuration (reusable component)
+- `esp32-hass-panel.yaml` — Main ESPHome configuration (reusable component)
 - `secrets.yaml` — Secrets file (not committed, see README for format)
 
 ## Substitutions
