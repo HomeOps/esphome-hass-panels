@@ -1,0 +1,489 @@
+# Thermostat UI — LVGL interface wired to Home Assistant climate entity
+# Board-independent; include alongside board.yaml and alarm-keypad-ui.yaml.
+# Swipe right from this page returns to alarm_page.
+
+globals:
+  - id: target_temp
+    type: float
+    restore_value: no
+    initial_value: '22.0'
+
+sensor:
+  - platform: homeassistant
+    id: clim_current_temp
+    entity_id: ${thermostat_entity_id}
+    attribute: current_temperature
+    on_value:
+      - lvgl.label.update:
+          id: lbl_current_temp
+          text: !lambda return str_sprintf("%.1f°", x);
+
+  - platform: homeassistant
+    id: clim_target_temp_sensor
+    entity_id: ${thermostat_entity_id}
+    attribute: temperature
+    on_value:
+      - lambda: id(target_temp) = x;
+      - lvgl.label.update:
+          id: lbl_target_temp
+          text: !lambda return str_sprintf("%.1f°", x);
+
+text_sensor:
+  - platform: homeassistant
+    id: clim_hvac_mode
+    entity_id: ${thermostat_entity_id}
+    on_value:
+      - if:
+          condition: {lambda: return x == "off";}
+          then: [{lvgl.button.update: {id: btn_mode_off,  bg_color: 0x555555}}]
+          else: [{lvgl.button.update: {id: btn_mode_off,  bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "heat";}
+          then: [{lvgl.button.update: {id: btn_mode_heat, bg_color: 0xcc4400}}]
+          else: [{lvgl.button.update: {id: btn_mode_heat, bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "cool";}
+          then: [{lvgl.button.update: {id: btn_mode_cool, bg_color: 0x0066aa}}]
+          else: [{lvgl.button.update: {id: btn_mode_cool, bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "heat_cool";}
+          then: [{lvgl.button.update: {id: btn_mode_auto, bg_color: 0x006644}}]
+          else: [{lvgl.button.update: {id: btn_mode_auto, bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "fan_only";}
+          then: [{lvgl.button.update: {id: btn_mode_fan,  bg_color: 0x6633aa}}]
+          else: [{lvgl.button.update: {id: btn_mode_fan,  bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "dry";}
+          then: [{lvgl.button.update: {id: btn_mode_dry,  bg_color: 0xaa6600}}]
+          else: [{lvgl.button.update: {id: btn_mode_dry,  bg_color: 0x16213e}}]
+
+  - platform: homeassistant
+    id: clim_preset_mode
+    entity_id: ${thermostat_entity_id}
+    attribute: preset_mode
+    on_value:
+      - if:
+          condition: {lambda: return x == "home";}
+          then: [{lvgl.button.update: {id: btn_preset_home,    bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_home,    bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "away";}
+          then: [{lvgl.button.update: {id: btn_preset_away,    bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_away,    bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "sleep";}
+          then: [{lvgl.button.update: {id: btn_preset_sleep,   bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_sleep,   bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "eco";}
+          then: [{lvgl.button.update: {id: btn_preset_eco,     bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_eco,     bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "boost";}
+          then: [{lvgl.button.update: {id: btn_preset_boost,   bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_boost,   bg_color: 0x16213e}}]
+      - if:
+          condition: {lambda: return x == "comfort";}
+          then: [{lvgl.button.update: {id: btn_preset_comfort, bg_color: 0x0f3460}}]
+          else: [{lvgl.button.update: {id: btn_preset_comfort, bg_color: 0x16213e}}]
+
+lvgl:
+  pages:
+    - id: thermostat_page
+      widgets:
+        - obj:
+            width: ${display_width}
+            height: ${display_height}
+            pad_all: 0
+            bg_color: 0x1a1a2e
+            border_width: 0
+            scrollbar_mode: "off"
+            scrollable: false
+            widgets:
+
+              # Current temperature — large display
+              - label:
+                  id: lbl_current_temp
+                  x: 10
+                  y: 8
+                  width: 460
+                  text: "--°"
+                  align: TOP_MID
+                  text_align: CENTER
+                  text_font: montserrat_48
+                  text_color: 0xffffff
+
+              - label:
+                  x: 10
+                  y: 68
+                  width: 460
+                  text: "CURRENT"
+                  align: TOP_MID
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  text_color: 0x888888
+
+              # Target temperature row: [−]  22.0°  [+]
+              - obj:
+                  x: 10
+                  y: 92
+                  width: 460
+                  height: 80
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: CENTER
+                  widgets:
+                    - button:
+                        width: 80
+                        height: 70
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: |-
+                              float next = id(target_temp) - ${thermostat_temp_step};
+                              if (next >= ${thermostat_temp_min}) id(target_temp) = next;
+                          - lvgl.label.update:
+                              id: lbl_target_temp
+                              text: !lambda return str_sprintf("%.1f°", id(target_temp));
+                          - homeassistant.service:
+                              service: climate.set_temperature
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                temperature: !lambda return id(target_temp);
+                        widgets:
+                          - label:
+                              text: "−"
+                              align: CENTER
+                              text_font: montserrat_48
+                              text_color: 0xffffff
+                    - label:
+                        id: lbl_target_temp
+                        text: "--°"
+                        align: CENTER
+                        text_align: CENTER
+                        text_font: montserrat_48
+                        text_color: 0xe94560
+                    - button:
+                        width: 80
+                        height: 70
+                        bg_color: 0x0f3460
+                        on_press:
+                          - lambda: |-
+                              float next = id(target_temp) + ${thermostat_temp_step};
+                              if (next <= ${thermostat_temp_max}) id(target_temp) = next;
+                          - lvgl.label.update:
+                              id: lbl_target_temp
+                              text: !lambda return str_sprintf("%.1f°", id(target_temp));
+                          - homeassistant.service:
+                              service: climate.set_temperature
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                temperature: !lambda return id(target_temp);
+                        widgets:
+                          - label:
+                              text: "+"
+                              align: CENTER
+                              text_font: montserrat_48
+                              text_color: 0xffffff
+
+              # MODE section label
+              - label:
+                  x: 10
+                  y: 180
+                  width: 460
+                  text: "MODE"
+                  text_font: montserrat_14
+                  text_color: 0x888888
+
+              # Mode row 1: OFF  HEAT  COOL
+              - obj:
+                  x: 10
+                  y: 200
+                  width: 460
+                  height: 52
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        id: btn_mode_off
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "off"
+                        widgets:
+                          - label:
+                              text: "OFF"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_mode_heat
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "heat"
+                        widgets:
+                          - label:
+                              text: "HEAT"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_mode_cool
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "cool"
+                        widgets:
+                          - label:
+                              text: "COOL"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+
+              # Mode row 2: AUTO  FAN  DRY
+              - obj:
+                  x: 10
+                  y: 256
+                  width: 460
+                  height: 52
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        id: btn_mode_auto
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "heat_cool"
+                        widgets:
+                          - label:
+                              text: "AUTO"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_mode_fan
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "fan_only"
+                        widgets:
+                          - label:
+                              text: "FAN"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_mode_dry
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_hvac_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                hvac_mode: "dry"
+                        widgets:
+                          - label:
+                              text: "DRY"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+
+              # PRESET section label
+              - label:
+                  x: 10
+                  y: 316
+                  width: 460
+                  text: "PRESET"
+                  text_font: montserrat_14
+                  text_color: 0x888888
+
+              # Preset row 1: HOME  AWAY  SLEEP
+              - obj:
+                  x: 10
+                  y: 336
+                  width: 460
+                  height: 52
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        id: btn_preset_home
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "home"
+                        widgets:
+                          - label:
+                              text: "\uF015"
+                              align: CENTER
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_preset_away
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "away"
+                        widgets:
+                          - label:
+                              text: "AWAY"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_preset_sleep
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "sleep"
+                        widgets:
+                          - label:
+                              text: "\U000F0594"
+                              align: CENTER
+                              text_font: mdi_icons
+                              text_color: 0xffffff
+
+              # Preset row 2: ECO  BOOST  COMFORT
+              - obj:
+                  x: 10
+                  y: 392
+                  width: 460
+                  height: 52
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        id: btn_preset_eco
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "eco"
+                        widgets:
+                          - label:
+                              text: "ECO"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_preset_boost
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "boost"
+                        widgets:
+                          - label:
+                              text: "BOOST"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+                    - button:
+                        id: btn_preset_comfort
+                        width: 148
+                        height: 52
+                        bg_color: 0x16213e
+                        on_press:
+                          - homeassistant.service:
+                              service: climate.set_preset_mode
+                              data:
+                                entity_id: ${thermostat_entity_id}
+                                preset_mode: "comfort"
+                        widgets:
+                          - label:
+                              text: "COMF"
+                              align: CENTER
+                              text_font: montserrat_22
+                              text_color: 0xffffff
+

@@ -139,7 +139,7 @@ font:
 
 lvgl:
   pages:
-    - id: keypad_page
+    - id: alarm_page
       widgets:
         - obj:
             width: ${display_width}
