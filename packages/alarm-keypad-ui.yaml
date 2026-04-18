@@ -29,19 +29,19 @@ globals:
 text_sensor:
   - platform: homeassistant
     id: alarm_code_arm_required
-    entity_id: alarm_control_panel.home_alarm
+    entity_id: ${alarm_entity_id}
     attribute: code_arm_required
     on_value:
       - lambda: id(arm_requires_code) = (x == "true");
   - platform: homeassistant
     id: alarm_code_disarm_required
-    entity_id: alarm_control_panel.home_alarm
+    entity_id: ${alarm_entity_id}
     attribute: code_disarm_required
     on_value:
       - lambda: id(disarm_requires_code) = (x == "true");
   - platform: homeassistant
     id: alarm_state
-    entity_id: alarm_control_panel.home_alarm
+    entity_id: ${alarm_entity_id}
     on_value:
       - lvgl.label.update:
           id: lbl_status
@@ -432,6 +432,10 @@ lvgl:
                               then:
                                 - lvgl.widget.hide:
                                     id: code_display
+                                - lvgl.label.update:
+                                    id: lbl_disarm_btn
+                                    text: "\U000F0FF2"
+                                    text_font: mdi_icons
                         widgets:
                           - label:
                               text: "CLR"
@@ -467,7 +471,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_disarm
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                                       code: !lambda return id(entered_code);
                           - if:
                               condition:
@@ -476,7 +480,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_away
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                                       code: !lambda return id(entered_code);
                           - if:
                               condition:
@@ -485,7 +489,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_home
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                                       code: !lambda return id(entered_code);
                           - if:
                               condition:
@@ -494,7 +498,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_night
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                                       code: !lambda return id(entered_code);
                           - lambda: id(entered_code) = ""; id(pending_action) = 0;
                           - lvgl.label.update:
@@ -502,6 +506,10 @@ lvgl:
                               text: ""
                           - lvgl.widget.hide:
                               id: code_display
+                          - lvgl.label.update:
+                              id: lbl_disarm_btn
+                              text: "\U000F0FF2"
+                              text_font: mdi_icons
                         widgets:
                           - label:
                               text: "OK"
@@ -543,7 +551,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_away
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
                               text: "\U000F033E"
@@ -566,7 +574,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_home
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
                               text: "\uF015"
@@ -589,7 +597,7 @@ lvgl:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_night
                                     data:
-                                      entity_id: alarm_control_panel.home_alarm
+                                      entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
                               text: "\U000F0594"
@@ -614,14 +622,19 @@ lvgl:
                         then:
                           - lvgl.widget.show:
                               id: code_display
+                          - lvgl.label.update:
+                              id: lbl_disarm_btn
+                              text: "PIN"
+                              text_font: montserrat_28
                         else:
                           - homeassistant.service:
                               service: alarm_control_panel.alarm_disarm
                               data:
-                                entity_id: alarm_control_panel.home_alarm
+                                entity_id: ${alarm_entity_id}
                                 code: ""
                   widgets:
                     - label:
+                        id: lbl_disarm_btn
                         text: "\U000F0FF2"
                         align: CENTER
                         text_font: mdi_icons
