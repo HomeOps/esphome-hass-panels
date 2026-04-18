@@ -48,6 +48,9 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 |---|---|---|
 | `name` | `esp32-alarm-keypad` | Device name (used for hostname, mDNS, etc.) |
 | `friendly_name` | `ESP32 Alarm Keypad` | Human-readable name shown in Home Assistant |
+| `display_width` | `480` | Display panel width in pixels |
+| `display_height` | `480` | Display panel height in pixels |
+| `display_rotation` | `270` | LVGL display rotation in degrees (0, 90, 180, 270) |
 
 Override them on the command line or in a per-device YAML:
 

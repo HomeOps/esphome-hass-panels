@@ -8,6 +8,9 @@
 substitutions:
   name: esp32-alarm-keypad
   friendly_name: ESP32 Alarm Keypad
+  display_width: "480"
+  display_height: "480"
+  display_rotation: "270"
 
 esphome:
   name: ${name}
@@ -171,13 +174,13 @@ i2c:
     number: 45
     ignore_strapping_warning: true
 
-# ST7701S — 16-bit RGB parallel interface, 480x480
+# ST7701S — 16-bit RGB parallel interface, ${display_width}x${display_height}
 display:
   - platform: st7701s
     id: tft_display
     dimensions:
-      width: 480
-      height: 480
+      width: ${display_width}
+      height: ${display_height}
     spi_mode: MODE3
     data_rate: 2MHz
     color_order: RGB
@@ -256,14 +259,14 @@ font:
 
 lvgl:
   # USB-C is at the bottom
-  rotation: 270
+  rotation: ${display_rotation}
 
   pages:
     - id: keypad_page
       widgets:
         - obj:
-            width: 480
-            height: 480
+            width: ${display_width}
+            height: ${display_height}
             pad_all: 0
             bg_color: 0x1a1a2e
             border_width: 0
