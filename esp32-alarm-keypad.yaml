@@ -41,6 +41,8 @@ substitutions:
   touchscreen_platform: "gt911"
   # Backlight
   backlight_pin: "GPIO38"
+  # Alarm panel entity
+  alarm_entity_id: alarm_control_panel.home_alarm
 
 packages:
   board: !include packages/board.yaml
