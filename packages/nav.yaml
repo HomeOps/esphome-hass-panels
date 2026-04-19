@@ -219,7 +219,7 @@ lvgl:
                 text: ""
                 text_align: CENTER
                 text_color: 0xffffff
-                text_font: montserrat_20
+                text_font: montserrat_28
                 long_mode: SCROLL_CIRCULAR
 
             # Right arrow — go to next page
