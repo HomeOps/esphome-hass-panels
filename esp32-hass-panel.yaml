@@ -62,6 +62,13 @@ packages:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  # project.version is the single source of truth for the firmware
+  # version shown on the connecting overlay (via ESPHOME_PROJECT_VERSION)
+  # and in the HA Dashboard / OTA metadata. Bumped automatically by
+  # release-please on each release — do not edit by hand.
+  project:
+    name: "HomeOps.esphome-hass-panels"
+    version: "1.6.1" # x-release-please-version
 
 # Switched from arduino to esp-idf — required for RGB panel + LVGL
 esp32:
