@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.4.0...v1.5.0) (2026-04-19)
+
+
+### Features
+
+* add persistent navbar ([06faeac](https://github.com/HomeOps/esphome-hass-panels/commit/06faeac36fc7bc9bd53d078366a8f2b99f2d731e))
+* add persistent navbar with left/right arrows and status label ([b71a4e7](https://github.com/HomeOps/esphome-hass-panels/commit/b71a4e706406d98fc37f2d31978a1239db297bfc))
+
+
+### Bug Fixes
+
+* make navbar responsive and use ASCII thermostat status text ([9638f70](https://github.com/HomeOps/esphome-hass-panels/commit/9638f705c84029b822f02bbd1c7e6ce944e4c44a))
+* map navbar status to active page slot and remove invalid font URL ([d3593bf](https://github.com/HomeOps/esphome-hass-panels/commit/d3593bf05ac6adc925c56a8f4a1df754cae6e54a))
+* show alarm code entry as navbar status overlay ([659c00a](https://github.com/HomeOps/esphome-hass-panels/commit/659c00ab16ceb0c8118bd306ad51c3854eb8372d))
+
 ## [1.4.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.3.0...v1.4.0) (2026-04-18)
 
 
