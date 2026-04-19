@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.4](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.3...v1.5.4) (2026-04-19)
+
+
+### Bug Fixes
+
+* show HVAC mode Auto when HA reports "auto" ([e168d27](https://github.com/HomeOps/esphome-hass-panels/commit/e168d272c1cd1edc55e13f92e286c0ab086391aa))
+* show HVAC mode Auto when HA reports "auto" ([c755b34](https://github.com/HomeOps/esphome-hass-panels/commit/c755b34f36ff10ca7eeee713d89b4436f128cc33))
+
 ## [1.5.3](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.2...v1.5.3) (2026-04-19)
 
 
