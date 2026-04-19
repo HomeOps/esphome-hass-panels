@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.4...v1.6.0) (2026-04-19)
+
+
+### Features
+
+* **nav:** show HA logo and spinner on connecting overlay ([648a513](https://github.com/HomeOps/esphome-hass-panels/commit/648a5133007502259d8de7391f47c84672249616))
+* **nav:** show HA logo and spinner on connecting overlay ([712b47c](https://github.com/HomeOps/esphome-hass-panels/commit/712b47c9c4f5d6295fdd6be60dd224c35bf2fb7b))
+
 ## [1.5.4](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.3...v1.5.4) (2026-04-19)
 
 
