@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.6.1...v1.7.0) (2026-04-19)
+
+
+### Features
+
+* **overlay:** show firmware version on connecting screen ([#29](https://github.com/HomeOps/esphome-hass-panels/issues/29)) ([253dfa6](https://github.com/HomeOps/esphome-hass-panels/commit/253dfa6ac444e585f654a97c0bab57e58d4c5130))
+
 ## [1.6.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.6.0...v1.6.1) (2026-04-19)
 
 
