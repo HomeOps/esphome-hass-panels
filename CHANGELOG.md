@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.6.0...v1.6.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **nav:** replace spinner with dot marquee on connecting overlay ([4bb8bc1](https://github.com/HomeOps/esphome-hass-panels/commit/4bb8bc1e3ad60250888409a3cd1bbd0fc0a62f70))
+* **nav:** replace spinner with dot marquee on connecting overlay ([5e1dd31](https://github.com/HomeOps/esphome-hass-panels/commit/5e1dd31ddce0ff5201bae7cfbd252ba62c24a434))
+
 ## [1.6.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.4...v1.6.0) (2026-04-19)
 
 
