@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.3](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.2...v1.5.3) (2026-04-19)
+
+
+### Bug Fixes
+
+* correct MDI shield codepoints and centre status labels ([e1d1f3d](https://github.com/HomeOps/esphome-hass-panels/commit/e1d1f3d0547ee8e922805391af71fc51abc0ce4f))
+* correct MDI shield codepoints and centre status labels ([6f96c71](https://github.com/HomeOps/esphome-hass-panels/commit/6f96c710e845dba050b0ad86a812b0c63b7557b8))
+
 ## [1.5.2](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.1...v1.5.2) (2026-04-19)
 
 
