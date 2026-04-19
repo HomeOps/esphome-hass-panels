@@ -9,6 +9,7 @@
 #   y=205..268 — keypad row 2  (7 8 9)
 #   y=275..338 — keypad row 3  (CLR 0 OK)
 #   y=345..408 — ARM / DISARM row
+#   y=415..470 — status bar (alarm state display)
 #
 # Navbar contract (nav.yaml):
 #   Writes formatted alarm state to any nav slot mapped to alarm_page, then calls
@@ -52,7 +53,7 @@ text_sensor:
     id: alarm_state
     entity_id: ${alarm_entity_id}
     on_value:
-      # Feed navbar status label
+      # Feed navbar status label and status bar
       - lambda: |-
           std::string txt;
           if      (x == "disarmed")   txt = "DISARMED";
@@ -67,6 +68,46 @@ text_sensor:
           if (strcmp("${nav_page_1}", "alarm_page") == 0) id(g_nav_status_1) = txt;
           if (strcmp("${nav_page_2}", "alarm_page") == 0) id(g_nav_status_2) = txt;
           if (strcmp("${nav_page_3}", "alarm_page") == 0) id(g_nav_status_3) = txt;
+      # Update status bar with state and appropriate color
+      - lvgl.label.update:
+          id: lbl_alarm_status
+          text: !lambda |-
+            if (x == "disarmed") return "DISARMED";
+            else if (x == "armed_away") return "🛡️ AWAY";
+            else if (x == "armed_home") return "🛡️ HOME";
+            else if (x == "arming") return "⏳ ARMING";
+            else if (x == "disarming") return "⏳ DISARMING";
+            else if (x == "pending") return "⏳ PENDING";
+            else if (x == "triggered") return "⚠️ TRIGGERED";
+            else return x.c_str();
+      - if:
+          condition:
+            lambda: return x == "disarmed";
+          then:
+            - lvgl.label.update:
+                id: lbl_alarm_status
+                text_color: 0x88dd88
+      - if:
+          condition:
+            lambda: return x == "armed_away" || x == "armed_home";
+          then:
+            - lvgl.label.update:
+                id: lbl_alarm_status
+                text_color: 0x66aaff
+      - if:
+          condition:
+            lambda: return x == "arming" || x == "disarming" || x == "pending";
+          then:
+            - lvgl.label.update:
+                id: lbl_alarm_status
+                text_color: 0xffaa33
+      - if:
+          condition:
+            lambda: return x == "triggered";
+          then:
+            - lvgl.label.update:
+                id: lbl_alarm_status
+                text_color: 0xff4444
       - script.execute: code_overlay_refresh
       # Drive ARM/DISARM button visibility and animations
       - script.stop: anim_arming
@@ -531,3 +572,31 @@ lvgl:
                         align: CENTER
                         text_font: mdi_icons
                         text_color: 0xffffff
+
+              # ── Status bar — shows current alarm state  y=415–470 ────
+              - obj:
+                  x: 10
+                  y: 415
+                  width: 460
+                  height: 55
+                  bg_color: 0x0a0a14
+                  bg_opa: COVER
+                  radius: 8
+                  border_width: 1
+                  border_color: 0x0f3460
+                  pad_all: 10
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                  widgets:
+                    - label:
+                        id: lbl_alarm_status
+                        text: "DISARMED"
+                        align: CENTER
+                        text_align: CENTER
+                        text_font: montserrat_18
+                        text_color: 0x88dd88
