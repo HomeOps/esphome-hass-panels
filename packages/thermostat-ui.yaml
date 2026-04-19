@@ -50,39 +50,13 @@ text_sensor:
   - platform: homeassistant
     id: clim_hvac_mode
     entity_id: ${thermostat_entity_id}
-    on_value:
-      - lambda: |-
-          std::string mode_label;
-          if (x == "off") mode_label = "OFF";
-          else if (x == "heat") mode_label = "HEAT";
-          else if (x == "cool") mode_label = "COOL";
-          else if (x == "heat_cool") mode_label = "AUTO";
-          else if (x == "fan_only") mode_label = "FAN";
-          else if (x == "dry") mode_label = "DRY";
-          else mode_label = x;
-          id(lbl_mode_dropdown) = mode_label;
-      - lvgl.label.update:
-          id: lbl_mode_dropdown
-          text: !lambda return id(lbl_mode_dropdown);
+    on_value: []
 
   - platform: homeassistant
     id: clim_preset_mode
     entity_id: ${thermostat_entity_id}
     attribute: preset_mode
     on_value:
-      - lambda: |-
-          std::string preset_label;
-          if (x == "home") preset_label = "HOME";
-          else if (x == "away") preset_label = "AWAY";
-          else if (x == "sleep") preset_label = "SLEEP";
-          else if (x == "eco") preset_label = "ECO";
-          else if (x == "boost") preset_label = "BOOST";
-          else if (x == "comfort") preset_label = "COMFORT";
-          else preset_label = x;
-          id(lbl_preset_dropdown) = preset_label;
-      - lvgl.label.update:
-          id: lbl_preset_dropdown
-          text: !lambda return id(lbl_preset_dropdown);
       - lambda: |-
           char buf[64];
           snprintf(buf, sizeof(buf), "%s - %.1f C", x.c_str(), id(clim_current_temp).state);

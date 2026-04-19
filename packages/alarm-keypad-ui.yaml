@@ -73,12 +73,12 @@ text_sensor:
           id: lbl_alarm_status
           text: !lambda |-
             if (x == "disarmed") return "DISARMED";
-            else if (x == "armed_away") return "🛡️ AWAY";
-            else if (x == "armed_home") return "🛡️ HOME";
-            else if (x == "arming") return "⏳ ARMING";
-            else if (x == "disarming") return "⏳ DISARMING";
-            else if (x == "pending") return "⏳ PENDING";
-            else if (x == "triggered") return "⚠️ TRIGGERED";
+            else if (x == "armed_away") return "ARMED AWAY";
+            else if (x == "armed_home") return "ARMED HOME";
+            else if (x == "arming") return "ARMING";
+            else if (x == "disarming") return "DISARMING";
+            else if (x == "pending") return "PENDING";
+            else if (x == "triggered") return "TRIGGERED";
             else return x.c_str();
       - if:
           condition:
