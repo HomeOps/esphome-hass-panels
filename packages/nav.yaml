@@ -211,11 +211,15 @@ lvgl:
                   - lambda: id(nav_idx) = (id(nav_idx) + ${nav_page_count} - 1) % ${nav_page_count};
                   - script.execute: nav_show_page
 
-            # Status label — filled by nav_refresh_status
+            # Status label — filled by nav_refresh_status.
+            # Intentionally no `height:` override: LVGL labels render text
+            # top-aligned inside their bounding box, so a label pinned to the
+            # full navbar height pushes the text to the top. Letting the label
+            # auto-size lets the row flex's `flex_align_cross: CENTER` do the
+            # vertical centring correctly.
             - label:
                 id: lbl_nav_status
                 flex_grow: 1
-                height: ${nav_bar_height}
                 text: ""
                 align: CENTER
                 text_align: CENTER

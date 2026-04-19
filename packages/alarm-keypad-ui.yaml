@@ -205,9 +205,9 @@ font:
     size: 40
     glyphs:
       - "\U000F033E"  # mdi:lock          → ARM AWAY
-      - "\U000F0FF1"  # mdi:shield       → ARM HOME
+      - "\U000F0498"  # mdi:shield        → ARM HOME
       - "\U000F0594"  # mdi:weather-night → ARM NIGHT
-      - "\U000F0FF2"  # mdi:shield-off    → DISARM
+      - "\U000F099E"  # mdi:shield-off    → DISARM
 
 lvgl:
   pages:
@@ -390,7 +390,7 @@ lvgl:
                               then:
                                 - lvgl.label.update:
                                     id: lbl_disarm_btn
-                                    text: "\U000F0FF2"
+                                    text: "\U000F099E"
                                     text_font: mdi_icons
                         widgets:
                           - label: {text: "CLR", align: CENTER, text_font: montserrat_22, text_color: 0xffffff}
@@ -448,7 +448,7 @@ lvgl:
                           - script.execute: code_overlay_refresh
                           - lvgl.label.update:
                               id: lbl_disarm_btn
-                              text: "\U000F0FF2"
+                              text: "\U000F099E"
                               text_font: mdi_icons
                         widgets:
                           - label: {text: "OK", align: CENTER, text_font: montserrat_22, text_color: 0xffffff}
@@ -513,7 +513,7 @@ lvgl:
                                       entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
-                              text: "\U000F0FF1"
+                              text: "\U000F0498"
                               align: CENTER
                               text_font: mdi_icons
                               text_color: 0xffffff
@@ -569,12 +569,16 @@ lvgl:
                   widgets:
                     - label:
                         id: lbl_disarm_btn
-                        text: "\U000F0FF2"
+                        text: "\U000F099E"
                         align: CENTER
                         text_font: mdi_icons
                         text_color: 0xffffff
 
               # ── Status bar — shows current alarm state  y=415–470 ────
+              # No inner FLEX layout: a FLEX container overrides `align:` on
+              # children, and cross-axis centring of a content-sized label
+              # silently landed the text flush-left. Plain `align: CENTER` on
+              # the single child works reliably.
               - obj:
                   x: 10
                   y: 415
@@ -585,14 +589,9 @@ lvgl:
                   radius: 8
                   border_width: 1
                   border_color: 0x0f3460
-                  pad_all: 10
+                  pad_all: 0
                   scrollbar_mode: "off"
                   scrollable: false
-                  layout:
-                    type: FLEX
-                    flex_flow: COLUMN
-                    flex_align_main: CENTER
-                    flex_align_cross: CENTER
                   widgets:
                     - label:
                         id: lbl_alarm_status
