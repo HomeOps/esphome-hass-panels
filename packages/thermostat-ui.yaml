@@ -51,14 +51,16 @@ text_sensor:
     id: clim_hvac_mode
     entity_id: ${thermostat_entity_id}
     on_value:
+      # Accept both "auto" and "heat_cool" for index 3 — different HA climate
+      # integrations expose the dual-setpoint mode under either name.
       - lvgl.dropdown.update:
           id: dd_hvac_mode
           selected_index: !lambda |-
-            if (x == "off")       return 0;
-            if (x == "heat")      return 1;
-            if (x == "cool")      return 2;
-            if (x == "heat_cool") return 3;
-            if (x == "fan_only")  return 4;
+            if (x == "off")                        return 0;
+            if (x == "heat")                       return 1;
+            if (x == "cool")                       return 2;
+            if (x == "auto" || x == "heat_cool")   return 3;
+            if (x == "fan_only")                   return 4;
             return 0;
 
   - platform: homeassistant
@@ -236,8 +238,12 @@ lvgl:
                     - "Fan Only"
                   selected_index: 0
                   on_value:
+                    # Write "auto" rather than "heat_cool": this is the mode
+                    # name most HA climate integrations (Ecobee, Nest, generic
+                    # thermostat) accept; devices that canonically report
+                    # "heat_cool" still accept "auto" via the climate domain.
                     - lambda: |-
-                        static const char* modes[] = {"off","heat","cool","heat_cool","fan_only"};
+                        static const char* modes[] = {"off","heat","cool","auto","fan_only"};
                         int idx = x;
                         if (idx >= 0 && idx < 5) {
                           id(set_hvac_mode).execute(std::string(modes[idx]));
