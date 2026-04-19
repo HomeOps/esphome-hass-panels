@@ -33,12 +33,12 @@ sensor:
       - lvgl.label.update:
           id: lbl_current_temp
           text: !lambda return str_sprintf("%.1f°", x);
-      # Update navbar status: "Preset · XX.X°"
+      # Update navbar status using ASCII-only text for guaranteed rendering.
       - lambda: |-
           std::string preset = id(clim_preset_mode).state;
           if (preset.empty()) preset = "--";
           char buf[64];
-          snprintf(buf, sizeof(buf), "%s · %.1f°", preset.c_str(), x);
+          snprintf(buf, sizeof(buf), "%s - %.1f C", preset.c_str(), x);
           if (strcmp("${nav_home_page}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
           if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
           if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_2) = buf;
@@ -114,10 +114,10 @@ text_sensor:
           condition: {lambda: return x == "comfort";}
           then: [{lvgl.button.update: {id: btn_preset_comfort, bg_color: 0x0f3460}}]
           else: [{lvgl.button.update: {id: btn_preset_comfort, bg_color: 0x16213e}}]
-      # Update navbar status: "Preset · XX.X°"
+      # Update navbar status using ASCII-only text for guaranteed rendering.
       - lambda: |-
           char buf[64];
-          snprintf(buf, sizeof(buf), "%s · %.1f°", x.c_str(), id(clim_current_temp).state);
+          snprintf(buf, sizeof(buf), "%s - %.1f C", x.c_str(), id(clim_current_temp).state);
           if (strcmp("${nav_home_page}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
           if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
           if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_2) = buf;

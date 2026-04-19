@@ -185,13 +185,16 @@ lvgl:
           border_color: 0x0f3460
           pad_all: 0
           hidden: true
+          layout:
+            type: FLEX
+            flex_flow: ROW
+            flex_align_main: START
+            flex_align_cross: CENTER
           widgets:
 
             # Left arrow — go to previous page
             - button:
                 id: btn_nav_left
-                x: 0
-                y: 0
                 width: ${nav_bar_height}
                 height: ${nav_bar_height}
                 bg_color: 0x16213e
@@ -211,9 +214,7 @@ lvgl:
             # Status label — filled by nav_refresh_status
             - label:
                 id: lbl_nav_status
-                x: ${nav_bar_height}
-                y: 0
-                width: 360   # display_width(480) − 2 × nav_bar_height(60)
+                flex_grow: 1
                 height: ${nav_bar_height}
                 text: ""
                 text_align: CENTER
@@ -224,8 +225,6 @@ lvgl:
             # Right arrow — go to next page
             - button:
                 id: btn_nav_right
-                x: 420      # display_width(480) − nav_bar_height(60)
-                y: 0
                 width: ${nav_bar_height}
                 height: ${nav_bar_height}
                 bg_color: 0x16213e
