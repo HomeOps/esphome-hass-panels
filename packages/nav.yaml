@@ -161,6 +161,16 @@ script:
             - lambda: id(nav_idx) = 0;
             - script.execute: nav_show_page
 
+# Large MDI glyph used only by the connecting overlay — a separate font so it
+# can be rendered at a logo-sized 96px without inflating the general-purpose
+# icon font used on the keypad / thermostat pages.
+font:
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: ha_logo_icon
+    size: 96
+    glyphs:
+      - "\U000F07D0"  # mdi:home-assistant
+
 # top_layer — always rendered above pages.
 # Declaration order: navbar first (lower z), connecting_overlay second (higher z).
 # When the overlay is shown it covers the navbar completely.
@@ -247,7 +257,13 @@ lvgl:
                   - script.execute: nav_show_page
 
       # ── Connecting overlay ─────────────────────────────────────────
-      # Full-screen, covers navbar. Static text only — no animation.
+      # Full-screen, covers navbar. Layout (all children `align: CENTER`,
+      # y relative to screen centre at 240px — clearances verified against
+      # rendered glyph/label heights so text never overlaps the animation):
+      #   y=-140   "Connecting"          (montserrat_28, ~36px)
+      #   y= -30   HA logo (96px icon)   — spans roughly -78 to +18
+      #   y= +80   LVGL spinner (50x50)  — spans +55 to +105, self-animating
+      #   y=+160   "to Home Assistant"   (montserrat_14, ~18px)
       - obj:
           id: connecting_overlay
           x: 0
@@ -264,13 +280,30 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                y: -20
+                y: -140
                 text: "Connecting"
                 text_font: montserrat_28
                 text_color: 0xffffff
             - label:
                 align: CENTER
-                y: 20
+                y: -30
+                text: "\U000F07D0"          # mdi:home-assistant
+                text_font: ha_logo_icon
+                text_color: 0x18BCF2        # Home Assistant brand blue
+            - spinner:
+                id: spn_connecting
+                align: CENTER
+                y: 80
+                width: 50
+                height: 50
+                spin_time: 1500ms
+                arc_length: 60deg
+                indicator:
+                  arc_color: 0x18BCF2
+                  arc_width: 5
+            - label:
+                align: CENTER
+                y: 160
                 text: "to Home Assistant"
                 text_font: montserrat_14
-                text_color: 0x555555
+                text_color: 0x888888
