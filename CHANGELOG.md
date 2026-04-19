@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.2](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.1...v1.5.2) (2026-04-19)
+
+
+### Bug Fixes
+
+* improve UI layout and readability (issue [#14](https://github.com/HomeOps/esphome-hass-panels/issues/14)) ([40778e7](https://github.com/HomeOps/esphome-hass-panels/commit/40778e74a963114ff74855db30006f523fcc80b7))
+* **issue-14:** improve UI layout and readability ([42a1982](https://github.com/HomeOps/esphome-hass-panels/commit/42a19826c21388f558f41fdf9c64521975c39852))
+* **nav:** center status label vertically in navbar ([0bdb5a5](https://github.com/HomeOps/esphome-hass-panels/commit/0bdb5a5554172927d711518acf8419c84955f0cc))
+
 ## [1.5.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.0...v1.5.1) (2026-04-19)
 
 
