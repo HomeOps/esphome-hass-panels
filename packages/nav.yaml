@@ -217,6 +217,7 @@ lvgl:
                 flex_grow: 1
                 height: ${nav_bar_height}
                 text: ""
+                align: CENTER
                 text_align: CENTER
                 text_color: 0xffffff
                 text_font: montserrat_28
