@@ -147,6 +147,28 @@ script:
             - lambda: id(nav_idx) = 0;
             - script.execute: nav_show_page
 
+font:
+  - file: "https://fonts.google.com/download?family=Montserrat"
+    id: montserrat_14
+    size: 14
+    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  - file: "https://fonts.google.com/download?family=Montserrat"
+    id: montserrat_20
+    size: 20
+    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  - file: "https://fonts.google.com/download?family=Montserrat"
+    id: montserrat_22
+    size: 22
+    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  - file: "https://fonts.google.com/download?family=Montserrat"
+    id: montserrat_28
+    size: 28
+    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  - file: "https://fonts.google.com/download?family=Montserrat"
+    id: montserrat_48
+    size: 48
+    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
 # top_layer — always rendered above pages.
 # Declaration order: navbar first (lower z), connecting_overlay second (higher z).
 # When the overlay is shown it covers the navbar completely.
