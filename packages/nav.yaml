@@ -291,6 +291,7 @@ lvgl:
       #   y= -30   HA logo (96px icon)   — spans roughly -78 to +18
       #   y= +80   three 14px dots       — animated by anim_connecting_dots
       #   y=+160   "to Home Assistant"   (montserrat_14, ~18px)
+      #   y=+200   "vX.Y.Z" firmware     (montserrat_14, dim)
       #
       # Dots rather than an LVGL spinner: the built-in spinner's track arc
       # and inner fill defaulted to opaque styles that obscured the
@@ -370,3 +371,12 @@ lvgl:
                 text: "to Home Assistant"
                 text_font: montserrat_14
                 text_color: 0x888888
+            # Firmware version — single source of truth is the
+            # esphome.project.version field in esp32-hass-panel.yaml,
+            # bumped automatically by release-please.
+            - label:
+                align: CENTER
+                y: 200
+                text: !lambda 'return std::string("v") + ESPHOME_PROJECT_VERSION;'
+                text_font: montserrat_14
+                text_color: 0x555555
