@@ -12,7 +12,8 @@
 #   y=395..458 — ARM / DISARM row
 #
 # Navbar contract (nav.yaml):
-#   Writes formatted alarm state to g_nav_alarm_status and calls nav_refresh_status.
+#   Writes formatted alarm state to any nav slot mapped to alarm_page, then calls
+#   nav_refresh_status.
 
 globals:
   - id: entered_code
@@ -63,7 +64,10 @@ text_sensor:
           else if (x == "pending")    txt = "PENDING...";
           else if (x == "triggered")  txt = "!! TRIGGERED !!";
           else txt = x;
-          id(g_nav_alarm_status) = txt;
+          if (strcmp("${nav_home_page}", "alarm_page") == 0) id(g_nav_status_0) = txt;
+          if (strcmp("${nav_page_1}", "alarm_page") == 0) id(g_nav_status_1) = txt;
+          if (strcmp("${nav_page_2}", "alarm_page") == 0) id(g_nav_status_2) = txt;
+          if (strcmp("${nav_page_3}", "alarm_page") == 0) id(g_nav_status_3) = txt;
       - script.execute: nav_refresh_status
       # Drive ARM/DISARM button visibility and animations
       - script.stop: anim_arming

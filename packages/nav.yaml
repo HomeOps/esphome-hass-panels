@@ -23,9 +23,9 @@
 #   and calls scripts nav_touch / nav_release on every touch event.
 #
 # Contract with UI packages (alarm-keypad-ui, thermostat-ui):
-#   Each panel writes its formatted status string to g_nav_alarm_status or
-#   g_nav_tstat_status, then calls nav_refresh_status.  nav.yaml renders
-#   whichever string matches the active nav_idx.
+#   Each panel writes its formatted status string to the nav slot(s) that map to
+#   that page (g_nav_status_0..g_nav_status_3), then calls nav_refresh_status.
+#   nav.yaml renders whichever slot matches the active nav_idx.
 
 substitutions:
   nav_home_page: alarm_page
@@ -45,12 +45,20 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
-  # Status strings written by UI packages; nav_refresh_status picks the right one.
-  - id: g_nav_alarm_status
+  # Per-slot status strings written by UI packages; nav_refresh_status picks by nav_idx.
+  - id: g_nav_status_0
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: g_nav_tstat_status
+  - id: g_nav_status_1
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_nav_status_2
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_nav_status_3
     type: std::string
     restore_value: no
     initial_value: '""'
@@ -126,14 +134,20 @@ script:
       - script.execute: nav_refresh_status
 
   # Update the navbar status label from the active panel's status string.
-  # UI packages call this after updating g_nav_alarm_status / g_nav_tstat_status.
+  # UI packages call this after updating the per-slot status globals.
   - id: nav_refresh_status
     then:
       - lambda: |-
           if (id(nav_idx) == 0)
-            lv_label_set_text(id(lbl_nav_status), id(g_nav_alarm_status).c_str());
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_status_0).c_str());
+          else if (id(nav_idx) == 1)
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_status_1).c_str());
+          else if (id(nav_idx) == 2)
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_status_2).c_str());
+          else if (id(nav_idx) == 3)
+            lv_label_set_text(id(lbl_nav_status), id(g_nav_status_3).c_str());
           else
-            lv_label_set_text(id(lbl_nav_status), id(g_nav_tstat_status).c_str());
+            lv_label_set_text(id(lbl_nav_status), "");
 
   # Auto-return: only fires when connected; resets to home page.
   - id: auto_return
@@ -146,28 +160,6 @@ script:
           then:
             - lambda: id(nav_idx) = 0;
             - script.execute: nav_show_page
-
-font:
-  - file: "https://fonts.google.com/download?family=Montserrat"
-    id: montserrat_14
-    size: 14
-    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-  - file: "https://fonts.google.com/download?family=Montserrat"
-    id: montserrat_20
-    size: 20
-    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-  - file: "https://fonts.google.com/download?family=Montserrat"
-    id: montserrat_22
-    size: 22
-    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-  - file: "https://fonts.google.com/download?family=Montserrat"
-    id: montserrat_28
-    size: 28
-    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-  - file: "https://fonts.google.com/download?family=Montserrat"
-    id: montserrat_48
-    size: 48
-    glyphs: "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
 # top_layer — always rendered above pages.
 # Declaration order: navbar first (lower z), connecting_overlay second (higher z).
