@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.5.0...v1.5.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **alarm-keypad:** use bottom space for status display ([176a9f3](https://github.com/HomeOps/esphome-hass-panels/commit/176a9f3b03b7cc330c7069ee19422a7052f3d6b5))
+* resolve config errors from missing label IDs and encoding issues ([36a7765](https://github.com/HomeOps/esphome-hass-panels/commit/36a77654fc67d9f38c1a6f6904d6c0124e302d0a))
+* **thermostat, nav, alarm-keypad:** improve layout and space efficiency ([8672066](https://github.com/HomeOps/esphome-hass-panels/commit/867206658eb0b94529f73121639f7f9f68505212))
+* **thermostat, nav:** improve layout and space efficiency for issue [#14](https://github.com/HomeOps/esphome-hass-panels/issues/14) ([4ff3c95](https://github.com/HomeOps/esphome-hass-panels/commit/4ff3c954aa6569267711859060ac4b7c507b0eba))
+
 ## [1.5.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.4.0...v1.5.0) (2026-04-19)
 
 
