@@ -69,6 +69,7 @@ binary_sensor:
     id: nav_api_status
     on_press:
       - lambda: id(nav_connected) = true; id(nav_idx) = 0;
+      - script.stop: anim_connecting_dots
       - lvgl.widget.hide:
           id: connecting_overlay
       - lvgl.widget.show:
@@ -80,6 +81,7 @@ binary_sensor:
           id: navbar
       - lvgl.widget.show:
           id: connecting_overlay
+      - script.execute: anim_connecting_dots
 
 esphome:
   on_boot:
@@ -87,6 +89,7 @@ esphome:
     then:
       - lvgl.widget.show:
           id: connecting_overlay
+      - script.execute: anim_connecting_dots
 
 script:
   # Called by board.yaml on every touch — resets idle timer.
@@ -160,6 +163,30 @@ script:
           then:
             - lambda: id(nav_idx) = 0;
             - script.execute: nav_show_page
+
+  # Connecting-overlay dot marquee: cycles which of the three dots is lit
+  # in HA blue (others dim) on a 300ms tick. `mode: restart` so the
+  # binary_sensor / on_boot callers can always (re)start it idempotently;
+  # the while loop terminates on its own once nav_connected flips true.
+  - id: anim_connecting_dots
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return !id(nav_connected);'
+          then:
+            - lvgl.widget.update: {id: dot_0, bg_color: 0x18BCF2}
+            - lvgl.widget.update: {id: dot_1, bg_color: 0x2a3a55}
+            - lvgl.widget.update: {id: dot_2, bg_color: 0x2a3a55}
+            - delay: 300ms
+            - lvgl.widget.update: {id: dot_0, bg_color: 0x2a3a55}
+            - lvgl.widget.update: {id: dot_1, bg_color: 0x18BCF2}
+            - lvgl.widget.update: {id: dot_2, bg_color: 0x2a3a55}
+            - delay: 300ms
+            - lvgl.widget.update: {id: dot_0, bg_color: 0x2a3a55}
+            - lvgl.widget.update: {id: dot_1, bg_color: 0x2a3a55}
+            - lvgl.widget.update: {id: dot_2, bg_color: 0x18BCF2}
+            - delay: 300ms
 
 # Large MDI glyph used only by the connecting overlay — a separate font so it
 # can be rendered at a logo-sized 96px without inflating the general-purpose
@@ -262,8 +289,13 @@ lvgl:
       # rendered glyph/label heights so text never overlaps the animation):
       #   y=-140   "Connecting"          (montserrat_28, ~36px)
       #   y= -30   HA logo (96px icon)   — spans roughly -78 to +18
-      #   y= +80   LVGL spinner (50x50)  — spans +55 to +105, self-animating
+      #   y= +80   three 14px dots       — animated by anim_connecting_dots
       #   y=+160   "to Home Assistant"   (montserrat_14, ~18px)
+      #
+      # Dots rather than an LVGL spinner: the built-in spinner's track arc
+      # and inner fill defaulted to opaque styles that obscured the
+      # animation under the dark overlay. Three plain obj circles driven
+      # by a tight script are simpler and render reliably.
       - obj:
           id: connecting_overlay
           x: 0
@@ -290,17 +322,48 @@ lvgl:
                 text: "\U000F07D0"          # mdi:home-assistant
                 text_font: ha_logo_icon
                 text_color: 0x18BCF2        # Home Assistant brand blue
-            - spinner:
-                id: spn_connecting
+            - obj:
+                id: dot_0
                 align: CENTER
+                x: -30
                 y: 80
-                width: 50
-                height: 50
-                spin_time: 1500ms
-                arc_length: 60deg
-                indicator:
-                  arc_color: 0x18BCF2
-                  arc_width: 5
+                width: 14
+                height: 14
+                radius: 7
+                border_width: 0
+                pad_all: 0
+                bg_color: 0x2a3a55
+                bg_opa: COVER
+                scrollbar_mode: "off"
+                scrollable: false
+            - obj:
+                id: dot_1
+                align: CENTER
+                x: 0
+                y: 80
+                width: 14
+                height: 14
+                radius: 7
+                border_width: 0
+                pad_all: 0
+                bg_color: 0x2a3a55
+                bg_opa: COVER
+                scrollbar_mode: "off"
+                scrollable: false
+            - obj:
+                id: dot_2
+                align: CENTER
+                x: 30
+                y: 80
+                width: 14
+                height: 14
+                radius: 7
+                border_width: 0
+                pad_all: 0
+                bg_color: 0x2a3a55
+                bg_opa: COVER
+                scrollbar_mode: "off"
+                scrollable: false
             - label:
                 align: CENTER
                 y: 160
