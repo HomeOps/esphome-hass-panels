@@ -146,7 +146,8 @@ font:
     id: mdi_icons
     size: 40
     glyphs:
-      - "\U000F033E"  # mdi:lock          → ARM AWAY
+      - "\U000F099F"  # mdi:shield-lock   → ARM AWAY
+      - "\U000F068A"  # mdi:shield-home   → ARM HOME
       - "\U000F0594"  # mdi:weather-night → ARM NIGHT
       - "\U000F0FF2"  # mdi:shield-off    → DISARM
 
@@ -478,7 +479,7 @@ lvgl:
                                       entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
-                              text: "\U000F033E"
+                              text: "\U000F099F"
                               align: CENTER
                               text_font: mdi_icons
                               text_color: 0xffffff
@@ -502,9 +503,9 @@ lvgl:
                                       entity_id: ${alarm_entity_id}
                         widgets:
                           - label:
-                              text: "\uF015"
+                              text: "\U000F068A"
                               align: CENTER
-                              text_font: montserrat_28
+                              text_font: mdi_icons
                               text_color: 0xffffff
                     - button:
                         width: 148
