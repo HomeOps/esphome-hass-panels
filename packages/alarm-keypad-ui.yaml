@@ -4,12 +4,11 @@
 #
 # Layout (480×480 display, nav_bar_height=60):
 #   y=  0..59  — navbar (top_layer, handled by nav.yaml)
-#   y= 65..108 — code-entry display bar (always visible; empty when idle)
-#   y=115..178 — keypad row 0  (1 2 3)
-#   y=185..248 — keypad row 1  (4 5 6)
-#   y=255..318 — keypad row 2  (7 8 9)
-#   y=325..388 — keypad row 3  (CLR 0 OK)
-#   y=395..458 — ARM / DISARM row
+#   y= 65..128 — keypad row 0  (1 2 3)
+#   y=135..198 — keypad row 1  (4 5 6)
+#   y=205..268 — keypad row 2  (7 8 9)
+#   y=275..338 — keypad row 3  (CLR 0 OK)
+#   y=345..408 — ARM / DISARM row
 #
 # Navbar contract (nav.yaml):
 #   Writes formatted alarm state to any nav slot mapped to alarm_page, then calls
@@ -68,7 +67,7 @@ text_sensor:
           if (strcmp("${nav_page_1}", "alarm_page") == 0) id(g_nav_status_1) = txt;
           if (strcmp("${nav_page_2}", "alarm_page") == 0) id(g_nav_status_2) = txt;
           if (strcmp("${nav_page_3}", "alarm_page") == 0) id(g_nav_status_3) = txt;
-      - script.execute: nav_refresh_status
+      - script.execute: code_overlay_refresh
       # Drive ARM/DISARM button visibility and animations
       - script.stop: anim_arming
       - script.stop: anim_triggered
@@ -111,6 +110,20 @@ text_sensor:
                 bg_color: 0xe94560
 
 script:
+  # When digits are entered, show * overlay in navbar status; otherwise restore
+  # the live status text from nav.yaml.
+  - id: code_overlay_refresh
+    then:
+      - if:
+          condition:
+            lambda: return id(entered_code).empty();
+          then:
+            - script.execute: nav_refresh_status
+          else:
+            - lvgl.label.update:
+                id: lbl_nav_status
+                text: !lambda return std::string(id(entered_code).size(), '*');
+
   # Slow orange pulse — arming / pending / disarming
   - id: anim_arming
     mode: restart
@@ -168,32 +181,10 @@ lvgl:
             scrollable: false
             widgets:
 
-              # ── Code display bar ─────────────────────────────────
-              # Always visible below the navbar; shows asterisks while typing.
+              # ── Row 0: 1 2 3  y=65 ──────────────────────────────
               - obj:
-                  id: code_display
                   x: 10
                   y: 65
-                  width: 460
-                  height: 44
-                  bg_color: 0x16213e
-                  radius: 8
-                  border_width: 1
-                  border_color: 0x0f3460
-                  scrollbar_mode: "off"
-                  scrollable: false
-                  widgets:
-                    - label:
-                        id: lbl_code
-                        align: CENTER
-                        text: ""
-                        text_font: montserrat_28
-                        text_color: 0xe94560
-
-              # ── Row 0: 1 2 3  y=115 ─────────────────────────────
-              - obj:
-                  x: 10
-                  y: 115
                   width: 460
                   height: 64
                   bg_color: 0x1a1a2e
@@ -213,9 +204,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "1";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "1", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -224,9 +213,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "2";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "2", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -235,16 +222,14 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "3";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "3", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
 
-              # ── Row 1: 4 5 6  y=185 ─────────────────────────────
+              # ── Row 1: 4 5 6  y=135 ─────────────────────────────
               - obj:
                   x: 10
-                  y: 185
+                  y: 135
                   width: 460
                   height: 64
                   bg_color: 0x1a1a2e
@@ -264,9 +249,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "4";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "4", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -275,9 +258,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "5";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "5", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -286,16 +267,14 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "6";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "6", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
 
-              # ── Row 2: 7 8 9  y=255 ─────────────────────────────
+              # ── Row 2: 7 8 9  y=205 ─────────────────────────────
               - obj:
                   x: 10
-                  y: 255
+                  y: 205
                   width: 460
                   height: 64
                   bg_color: 0x1a1a2e
@@ -315,9 +294,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "7";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "7", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -326,9 +303,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "8";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "8", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -337,16 +312,14 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "9";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "9", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
 
-              # ── Row 3: CLR 0 OK  y=325 ──────────────────────────
+              # ── Row 3: CLR 0 OK  y=275 ──────────────────────────
               - obj:
                   x: 10
-                  y: 325
+                  y: 275
                   width: 460
                   height: 64
                   bg_color: 0x1a1a2e
@@ -368,9 +341,7 @@ lvgl:
                           - lambda: |-
                               if (!id(entered_code).empty())
                                 id(entered_code).pop_back();
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                           - if:
                               condition:
                                 lambda: return id(entered_code).empty();
@@ -387,9 +358,7 @@ lvgl:
                         bg_color: 0x16213e
                         on_press:
                           - lambda: id(entered_code) += "0";
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: !lambda return std::string(id(entered_code).size(), '*');
+                          - script.execute: code_overlay_refresh
                         widgets:
                           - label: {text: "0", align: CENTER, text_font: montserrat_28, text_color: 0xffffff}
                     - button:
@@ -434,9 +403,7 @@ lvgl:
                                       entity_id: ${alarm_entity_id}
                                       code: !lambda return id(entered_code);
                           - lambda: id(entered_code) = ""; id(pending_action) = 0;
-                          - lvgl.label.update:
-                              id: lbl_code
-                              text: ""
+                          - script.execute: code_overlay_refresh
                           - lvgl.label.update:
                               id: lbl_disarm_btn
                               text: "\U000F0FF2"
@@ -444,11 +411,11 @@ lvgl:
                         widgets:
                           - label: {text: "OK", align: CENTER, text_font: montserrat_22, text_color: 0xffffff}
 
-              # ── ARM buttons row  y=395 — shown when disarmed ─────
+              # ── ARM buttons row  y=345 — shown when disarmed ─────
               - obj:
                   id: arm_buttons_row
                   x: 10
-                  y: 395
+                  y: 345
                   width: 460
                   height: 64
                   bg_color: 0x1a1a2e
@@ -472,9 +439,8 @@ lvgl:
                               condition:
                                 lambda: return id(arm_requires_code);
                               then:
-                                - lvgl.label.update:
-                                    id: lbl_code
-                                    text: ""
+                                - lambda: id(entered_code) = "";
+                                - script.execute: code_overlay_refresh
                               else:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_away
@@ -496,9 +462,8 @@ lvgl:
                               condition:
                                 lambda: return id(arm_requires_code);
                               then:
-                                - lvgl.label.update:
-                                    id: lbl_code
-                                    text: ""
+                                - lambda: id(entered_code) = "";
+                                - script.execute: code_overlay_refresh
                               else:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_home
@@ -520,9 +485,8 @@ lvgl:
                               condition:
                                 lambda: return id(arm_requires_code);
                               then:
-                                - lvgl.label.update:
-                                    id: lbl_code
-                                    text: ""
+                                - lambda: id(entered_code) = "";
+                                - script.execute: code_overlay_refresh
                               else:
                                 - homeassistant.service:
                                     service: alarm_control_panel.alarm_arm_night
@@ -535,11 +499,11 @@ lvgl:
                               text_font: mdi_icons
                               text_color: 0xffffff
 
-              # ── DISARM button  y=395 — shown when armed/triggered ─
+              # ── DISARM button  y=345 — shown when armed/triggered ─
               - button:
                   id: disarm_btn
                   x: 10
-                  y: 395
+                  y: 345
                   width: 460
                   height: 64
                   bg_color: 0xe94560
