@@ -59,6 +59,8 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
+| `3d/cradle.scad` | OpenSCAD source for the 3D-printable wall-mount cradle |
+| `3d/cradle.stl` | Pre-rendered STL ready to slice |
 
 ### Architecture
 
@@ -194,6 +196,22 @@ The thermostat page subscribes to a `climate` entity. Point the `thermostat_enti
 ### General
 
 Enable **"Allow Home Assistant actions"** on the ESPHome device page in HA after first adoption.
+
+## 3D-printed wall mount
+
+A single-part wall-mount cradle is included under `3d/` — plate bolts to a US single-gang old-work box, cradle holds the device via a front retention lip that drops into the 5 mm notch around the device's bezel.
+
+| | |
+|---|---|
+| Plate | 100 × 110 × 5 mm, mounts to US single-gang box (83.3 mm screw spacing) |
+| Cradle | 93 × 93 × 13 mm, 88.4 × 88.4 mm cavity with 5 mm front retention frame |
+| Wire passthrough | 80 × 70 mm, split into 4 quadrants by a 15 mm cross of plate material |
+| Bottom slot | 60 mm-wide opening for USB-C / microSD access |
+| Material | PETG (survives 40 °C ambient — do not use PLA) |
+| Print | 0.2 mm layer, 30 % infill, 4 perimeters, no supports |
+| Orientation | Wall plate flat on the bed, cradle rising up |
+
+Device installs by tilting it in from the front — the top retention bar is closed, so it can't be slid in from the top. Edit parameters at the top of `cradle.scad` and re-render with OpenSCAD (`openscad -o cradle.stl cradle.scad`) if you need to tweak.
 
 ## Toolchain note
 
