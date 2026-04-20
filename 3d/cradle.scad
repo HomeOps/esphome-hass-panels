@@ -79,10 +79,13 @@ $fn = 48;
 cavity_w = device_w + clearance;
 cavity_h = device_h + clearance;
 
-// Z offset so the cradle's outer bottom aligns with the plate's
-// outer bottom (instead of both being centered). For plate_h = 120
-// and cradle_outer_h = 93, this is -13.5 mm.
-cradle_z = -(plate_h - cradle_outer_h) / 2;
+// Z offset for the cradle relative to the plate. Starts from the
+// cradle's outer bottom aligned with the plate's outer bottom, then
+// shifted up 5 mm so the cradle sits slightly above the plate's
+// bottom edge. For plate_h = 120 and cradle_outer_h = 93, this is
+// -13.5 + 5 = -8.5 mm.
+cradle_lift = 5;
+cradle_z    = -(plate_h - cradle_outer_h) / 2 + cradle_lift;
 
 // ---------- BUILD ----------
 
