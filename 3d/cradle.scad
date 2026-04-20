@@ -49,15 +49,6 @@ wire_hole_h    = 70;
 box_hole_spacing = 83.3;
 box_hole_d       = 4.2;  // #6-32 clearance
 
-// ---------- 8-PIN CONNECTOR SLIDE-IN CHANNEL ----------
-// Vertical groove on the cradle-facing side of the wall plate so the
-// device's 3 mm-raised 8-pin header can slide down from the top into
-// its seated position. Runs from above the wire hole up through the
-// top edge of the plate. Adjust conn_chan_x to match the connector.
-conn_chan_w      = 25;   // X width of the channel
-conn_chan_depth  = 3;    // Y recess into plate (matches header height)
-conn_chan_x      = 30;   // X center (upper-RIGHT front view = X > 0)
-
 // ---------- BOTTOM SLOT (USB-C + SD card) ----------
 // Wide opening through the cradle's bottom lip so the USB-C port and
 // microSD slot on the device's bottom edge are reachable. Cuts the full
@@ -129,15 +120,7 @@ union() {
         translate([ spine_w/2,    -0.1, -wire_hole_h/2])
             cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // lower-right
 
-        // 8-pin connector slide-in channel (cradle-facing side, upper portion)
-        translate([conn_chan_x - conn_chan_w/2,
-                   plate_t - conn_chan_depth,
-                   wire_hole_h/2 - 0.01])
-            cube([conn_chan_w,
-                  conn_chan_depth + 0.02,
-                  plate_h/2 - wire_hole_h/2 + 1]);
-
-        // Bottom slot (USB-C + SD card) through the cradle's bottom lip.
+// Bottom slot (USB-C + SD card) through the cradle's bottom lip.
         // Full Y depth of the cradle; Z extends 1 mm up into the cavity
         // so there's no coincident plane with the retention lip (added
         // back as a separate solid below).
@@ -164,8 +147,9 @@ union() {
     // from the front.
     translate([-cavity_w/2,
                plate_t + cradle_depth - front_lip_t,
-               cradle_z - cradle_outer_h/2 + wall_bottom_t])
-        cube([cavity_w, front_lip_t, front_lip_w]);           // bottom bar
+               cradle_z - cradle_outer_h/2])
+        cube([cavity_w, front_lip_t,
+              wall_bottom_t + front_lip_w]);                  // bottom bar
 
     translate([-cavity_w/2,
                plate_t + cradle_depth - front_lip_t,
