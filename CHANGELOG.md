@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.7.0...v1.8.0) (2026-04-20)
+
+
+### Features
+
+* **garage:** add garage door opener page ([#31](https://github.com/HomeOps/esphome-hass-panels/issues/31)) ([70f7d64](https://github.com/HomeOps/esphome-hass-panels/commit/70f7d644559c9d322200c4d12a95ecf8a8b46ea3))
+
 ## [1.7.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.6.1...v1.7.0) (2026-04-19)
 
 
