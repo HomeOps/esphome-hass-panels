@@ -1,0 +1,317 @@
+# Garage door UI — LVGL interface wired to Home Assistant cover entity
+# Board-independent; include alongside board.yaml.
+#
+# Layout (480×480 display, nav_bar_height=60):
+#   y=  0..59   — navbar (top_layer, handled by nav.yaml)
+#   y= 70..102  — friendly_name label (DOT overflow for long names)
+#   y=110..168  — state text (OPENED/OPENING/CLOSED/CLOSING)
+#   y=180..260  — progress area: bar (if position reported) OR marquee
+#   y=275..355  — button row [OPEN↑] [STOP■] [CLOSE↓]
+#
+# Progress rendering:
+#   When the cover exposes `current_position` (0-100), the bar widget
+#   shows true progress. Otherwise, a sliding block (marquee) runs while
+#   state is opening/closing to signal motion without faking progress.
+
+globals:
+  # Flips true the first time HA reports `current_position`. Controls
+  # which progress widget (bar vs marquee) the state handler shows.
+  - id: garage_pos_known
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: garage_marquee_x
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: garage_marquee_dir
+    type: int
+    restore_value: no
+    initial_value: '1'
+
+sensor:
+  - platform: homeassistant
+    id: cov_position
+    entity_id: ${garage_entity_id}
+    attribute: current_position
+    on_value:
+      - lambda: id(garage_pos_known) = true;
+      - lvgl.widget.hide: {id: garage_marquee_track}
+      - lvgl.widget.show: {id: garage_progress_bar}
+      - lvgl.bar.update:
+          id: garage_progress_bar
+          value: !lambda "return (int) x;"
+          animated: true
+
+text_sensor:
+  - platform: homeassistant
+    id: cov_friendly_name
+    entity_id: ${garage_entity_id}
+    attribute: friendly_name
+    on_value:
+      - lvgl.label.update:
+          id: lbl_garage_name
+          text: !lambda "return x.c_str();"
+
+  - platform: homeassistant
+    id: cov_state
+    entity_id: ${garage_entity_id}
+    on_value:
+      # State text
+      - lvgl.label.update:
+          id: lbl_garage_state
+          text: !lambda |-
+            if (x == "open")    return "OPENED";
+            if (x == "opening") return "OPENING";
+            if (x == "closed")  return "CLOSED";
+            if (x == "closing") return "CLOSING";
+            return x.c_str();
+      # State color (explicit if-blocks; update action's text_color takes a literal)
+      - if:
+          condition: {lambda: 'return x == "open";'}
+          then:
+            - lvgl.label.update: {id: lbl_garage_state, text_color: 0xffaa33}
+      - if:
+          condition: {lambda: 'return x == "opening" || x == "closing";'}
+          then:
+            - lvgl.label.update: {id: lbl_garage_state, text_color: 0x66aaff}
+      - if:
+          condition: {lambda: 'return x == "closed";'}
+          then:
+            - lvgl.label.update: {id: lbl_garage_state, text_color: 0x88dd88}
+      # Progress area: bar (position-known) vs marquee (position-unknown + moving)
+      - if:
+          condition: {lambda: 'return id(garage_pos_known);'}
+          then:
+            - script.stop: anim_garage_marquee
+            - lvgl.widget.hide: {id: garage_marquee_track}
+            - lvgl.widget.show: {id: garage_progress_bar}
+          else:
+            - if:
+                condition: {lambda: 'return x == "opening" || x == "closing";'}
+                then:
+                  - lvgl.widget.hide: {id: garage_progress_bar}
+                  - lvgl.widget.show: {id: garage_marquee_track}
+                  - script.execute: anim_garage_marquee
+                else:
+                  - script.stop: anim_garage_marquee
+                  - lvgl.widget.hide: {id: garage_marquee_track}
+                  - lvgl.widget.show: {id: garage_progress_bar}
+                  - lvgl.bar.update:
+                      id: garage_progress_bar
+                      value: !lambda |-
+                        if (x == "open")   return 100;
+                        if (x == "closed") return 0;
+                        return 0;
+      # Navbar status: "<friendly_name> - <State>"
+      - lambda: |-
+          std::string name = id(cov_friendly_name).state.empty() ? std::string("Garage") : id(cov_friendly_name).state;
+          std::string st;
+          if      (x == "open")    st = "Opened";
+          else if (x == "opening") st = "Opening";
+          else if (x == "closed")  st = "Closed";
+          else if (x == "closing") st = "Closing";
+          else st = x;
+          std::string buf = name + " - " + st;
+          if (strcmp("${nav_home_page}", "garage_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_1}", "garage_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_2}", "garage_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_3}", "garage_page") == 0) id(g_nav_status_3) = buf;
+      - script.execute: nav_refresh_status
+
+script:
+  - id: garage_open_cmd
+    then:
+      - homeassistant.service:
+          service: cover.open_cover
+          data:
+            entity_id: ${garage_entity_id}
+
+  - id: garage_close_cmd
+    then:
+      - homeassistant.service:
+          service: cover.close_cover
+          data:
+            entity_id: ${garage_entity_id}
+
+  - id: garage_stop_cmd
+    then:
+      - homeassistant.service:
+          service: cover.stop_cover
+          data:
+            entity_id: ${garage_entity_id}
+
+  # Indeterminate marquee: a 100px block ping-pongs across the 460px
+  # track while the cover is opening/closing without a reported position.
+  # `mode: restart` so the state handler can re-enter idempotently.
+  - id: anim_garage_marquee
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: |-
+              std::string s = id(cov_state).state;
+              return (s == "opening" || s == "closing");
+          then:
+            - lambda: |-
+                int next = id(garage_marquee_x) + 20 * id(garage_marquee_dir);
+                if (next >= 360) { next = 360; id(garage_marquee_dir) = -1; }
+                if (next <= 0)   { next = 0;   id(garage_marquee_dir) =  1; }
+                id(garage_marquee_x) = next;
+            - lvgl.widget.update:
+                id: garage_marquee_block
+                x: !lambda "return id(garage_marquee_x);"
+            - delay: 50ms
+
+font:
+  # Separate id from mdi_icons (alarm-ui) so the two fonts can co-exist
+  # without cross-coupling glyph sets between packages.
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: mdi_icons_garage
+    size: 40
+    glyphs:
+      - "\U000F0737"  # mdi:arrow-up-bold   → OPEN
+      - "\U000F04DB"  # mdi:stop            → STOP
+      - "\U000F072E"  # mdi:arrow-down-bold → CLOSE
+
+lvgl:
+  pages:
+    - id: garage_page
+      widgets:
+        - obj:
+            width: ${display_width}
+            height: ${display_height}
+            pad_all: 0
+            bg_color: 0x1a1a2e
+            border_width: 0
+            scrollbar_mode: "off"
+            scrollable: false
+            widgets:
+
+              # ── Friendly name label — truncated with ellipsis ──────
+              - label:
+                  id: lbl_garage_name
+                  x: 10
+                  y: 70
+                  width: 460
+                  height: 32
+                  text: "Garage"
+                  long_mode: DOT
+                  align: TOP_MID
+                  text_align: CENTER
+                  text_font: montserrat_22
+                  text_color: 0xaaaaaa
+
+              # ── State text (large) ─────────────────────────────────
+              - label:
+                  id: lbl_garage_state
+                  x: 10
+                  y: 110
+                  width: 460
+                  text: "--"
+                  align: TOP_MID
+                  text_align: CENTER
+                  text_font: montserrat_48
+                  text_color: 0xffffff
+
+              # ── Progress area: two overlaid widgets ────────────────
+              # Determinate bar (shown when position is reported)
+              - bar:
+                  id: garage_progress_bar
+                  x: 10
+                  y: 180
+                  width: 460
+                  height: 80
+                  bg_color: 0x0f3460
+                  border_width: 0
+                  radius: 8
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  indicator:
+                    bg_color: 0xe94560
+                    radius: 8
+
+              # Indeterminate marquee (shown during opening/closing
+              # when no position is reported; driven by anim_garage_marquee)
+              - obj:
+                  id: garage_marquee_track
+                  x: 10
+                  y: 180
+                  width: 460
+                  height: 80
+                  bg_color: 0x0f3460
+                  border_width: 0
+                  radius: 8
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  hidden: true
+                  widgets:
+                    - obj:
+                        id: garage_marquee_block
+                        x: 0
+                        y: 0
+                        width: 100
+                        height: 80
+                        bg_color: 0xe94560
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 8
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+
+              # ── Button row: [OPEN↑] [STOP■] [CLOSE↓] ───────────────
+              - obj:
+                  x: 10
+                  y: 275
+                  width: 460
+                  height: 80
+                  bg_color: 0x1a1a2e
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_BETWEEN
+                    flex_align_cross: STRETCH
+                  widgets:
+                    - button:
+                        width: 148
+                        height: 80
+                        bg_color: 0x0b8457
+                        on_press:
+                          - script.execute: garage_open_cmd
+                        widgets:
+                          - label:
+                              text: "\U000F0737"  # mdi:arrow-up-bold
+                              align: CENTER
+                              text_font: mdi_icons_garage
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 80
+                        bg_color: 0x888888
+                        on_press:
+                          - script.execute: garage_stop_cmd
+                        widgets:
+                          - label:
+                              text: "\U000F04DB"  # mdi:stop
+                              align: CENTER
+                              text_font: mdi_icons_garage
+                              text_color: 0xffffff
+                    - button:
+                        width: 148
+                        height: 80
+                        bg_color: 0xe94560
+                        on_press:
+                          - script.execute: garage_close_cmd
+                        widgets:
+                          - label:
+                              text: "\U000F072E"  # mdi:arrow-down-bold
+                              align: CENTER
+                              text_font: mdi_icons_garage
+                              text_color: 0xffffff
