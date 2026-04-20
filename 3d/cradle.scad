@@ -65,6 +65,14 @@ conn_chan_x      = 30;   // X center (upper-RIGHT front view = X > 0)
 // the remaining lip on each side of the slot.
 bottom_slot_w    = 60;
 
+// ---------- CENTER SPINES ----------
+// 15 mm-wide uncut strips of plate material forming a cross through
+// the wire passthrough: one vertical (aligned with the screw
+// centerline), one horizontal. Not separate ribs — they are the
+// portions of the plate the wire hole does NOT cut away. The wire
+// passthrough is split into four quadrants around them.
+spine_w          = 15;
+
 $fn = 48;
 
 // ---------- DERIVED ----------
@@ -104,9 +112,19 @@ union() {
             }
         }
 
-        // Wire passthrough: rectangular hole through the plate
+        // Wire passthrough: split into four quadrants separated by a
+        // cross of 15 mm-wide plate strips (vertical on the screw
+        // centerline, horizontal at the plate vertical center).
+        wire_half_w = (wire_hole_w - spine_w) / 2;
+        wire_half_h = (wire_hole_h - spine_w) / 2;
+        translate([-wire_hole_w/2, -0.1,  spine_w/2])
+            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-left
+        translate([ spine_w/2,    -0.1,  spine_w/2])
+            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-right
         translate([-wire_hole_w/2, -0.1, -wire_hole_h/2])
-            cube([wire_hole_w, plate_t + 0.2, wire_hole_h]);
+            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // lower-left
+        translate([ spine_w/2,    -0.1, -wire_hole_h/2])
+            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // lower-right
 
         // 8-pin connector slide-in channel (cradle-facing side, upper portion)
         translate([conn_chan_x - conn_chan_w/2,
