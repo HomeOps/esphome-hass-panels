@@ -25,8 +25,9 @@ clearance      = 0.4;
 
 // ---------- WALL PLATE ----------
 plate_w        = 100;
-plate_h        = 120;
+plate_h        = 110;    // 10 mm trimmed off the top vs original 120
 plate_t        = 5;
+plate_bottom_z = -60;    // Z of plate's bottom edge (fixed anchor)
 
 // ---------- CRADLE ----------
 cradle_outer_w = 93;
@@ -70,13 +71,10 @@ $fn = 48;
 cavity_w = device_w + clearance;
 cavity_h = device_h + clearance;
 
-// Z offset for the cradle relative to the plate. Starts from the
-// cradle's outer bottom aligned with the plate's outer bottom, then
-// shifted up 5 mm so the cradle sits slightly above the plate's
-// bottom edge. For plate_h = 120 and cradle_outer_h = 93, this is
-// -13.5 + 5 = -8.5 mm.
+// Z offset for the cradle: bottom aligned with the plate's bottom
+// edge, then lifted so the cradle sits slightly above it.
 cradle_lift = 5;
-cradle_z    = -(plate_h - cradle_outer_h) / 2 + cradle_lift;
+cradle_z    = plate_bottom_z + cradle_outer_h/2 + cradle_lift;
 
 // ---------- BUILD ----------
 
@@ -88,7 +86,7 @@ union() {
     difference() {
         union() {
             // Wall plate
-            translate([-plate_w/2, 0, -plate_h/2])
+            translate([-plate_w/2, 0, plate_bottom_z])
                 cube([plate_w, plate_t, plate_h]);
 
             // Cradle: hollow shell (open top + open front).
