@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.8.0...v1.9.0) (2026-04-25)
+
+
+### Features
+
+* **overlay:** show wifi/HA/permissions readiness on connecting screen ([#34](https://github.com/HomeOps/esphome-hass-panels/issues/34)) ([8825cf6](https://github.com/HomeOps/esphome-hass-panels/commit/8825cf69c2f4b32f3361024b8d99fadfdaa64458))
+
 ## [1.8.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.7.0...v1.8.0) (2026-04-20)
 
 
