@@ -53,6 +53,14 @@ text_sensor:
     id: alarm_state
     entity_id: ${alarm_entity_id}
     on_value:
+      # First entity state from HA confirms our subscription was accepted —
+      # that's the signal nav.yaml uses to flip the "Permissions" indicator.
+      - if:
+          condition:
+            lambda: 'return !id(g_perms_ok);'
+          then:
+            - lambda: id(g_perms_ok) = true;
+            - script.execute: nav_connection_check
       # Feed navbar status label and status bar
       - lambda: |-
           std::string txt;

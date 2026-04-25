@@ -3,7 +3,8 @@
 # Responsibilities:
 #   - Persistent top navbar with left/right arrows and a status label.
 #     The status label shows alarm state (alarm page) or preset·temp (tstat page).
-#   - Full-screen "Connecting..." overlay shown on boot and when HA disconnects.
+#   - Full-screen "Connecting..." overlay shown on boot and whenever any of the
+#     three readiness conditions go false (Wi-Fi, HA API, HA permissions).
 #     Panels never see or handle this state.
 #   - Swipe left/right cycles the registered panel pages by index.
 #     Connecting page is NOT in the swipe cycle.
@@ -26,6 +27,10 @@
 #   Each panel writes its formatted status string to the nav slot(s) that map to
 #   that page (g_nav_status_0..g_nav_status_3), then calls nav_refresh_status.
 #   nav.yaml renders whichever slot matches the active nav_idx.
+#
+#   The first time any panel receives entity state from HA it should set
+#   g_perms_ok = true and call nav_connection_check — this is the signal that
+#   HA has accepted our subscriptions (i.e. permissions granted).
 
 substitutions:
   nav_home_page: alarm_page
@@ -62,34 +67,69 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  # Connecting-overlay readiness flags.
+  #   g_wifi_ok  — STA associated and has IP (driven by interval poll below).
+  #   g_api_ok   — Native API connected & authenticated (driven by status sensor).
+  #   g_perms_ok — HA has answered at least one subscription with state. UI
+  #                packages set this from a homeassistant text_sensor on_value.
+  - id: g_wifi_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_api_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_perms_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
-# Show connecting overlay on boot; switch to home page when HA API connects.
+# API connect/disconnect drives g_api_ok. Permissions reset on disconnect since
+# any prior subscription is invalidated; they re-arm when entities replay state.
 binary_sensor:
   - platform: status
     id: nav_api_status
     on_press:
-      - lambda: id(nav_connected) = true; id(nav_idx) = 0;
-      - script.stop: anim_connecting_dots
-      - lvgl.widget.hide:
-          id: connecting_overlay
-      - lvgl.widget.show:
-          id: navbar
-      - script.execute: nav_show_page
+      - lambda: id(g_api_ok) = true;
+      - script.execute: nav_connection_check
     on_release:
-      - lambda: id(nav_connected) = false; id(nav_idx) = 0;
-      - lvgl.widget.hide:
-          id: navbar
-      - lvgl.widget.show:
-          id: connecting_overlay
-      - script.execute: anim_connecting_dots
+      - lambda: |-
+          id(g_api_ok) = false;
+          id(g_perms_ok) = false;
+      - script.execute: nav_connection_check
+
+# Wi-Fi has no event-driven binary_sensor in ESPHome. Poll cheaply and only
+# refresh the overlay when the state actually flips.
+interval:
+  - interval: 2s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - if:
+                condition:
+                  lambda: 'return !id(g_wifi_ok);'
+                then:
+                  - lambda: id(g_wifi_ok) = true;
+                  - script.execute: nav_connection_check
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(g_wifi_ok);'
+                then:
+                  - lambda: |-
+                      id(g_wifi_ok) = false;
+                      id(g_api_ok) = false;
+                      id(g_perms_ok) = false;
+                  - script.execute: nav_connection_check
 
 esphome:
   on_boot:
     priority: -100   # after LVGL is initialised
     then:
-      - lvgl.widget.show:
-          id: connecting_overlay
-      - script.execute: anim_connecting_dots
+      - script.execute: nav_connection_check
 
 script:
   # Called by board.yaml on every touch — resets idle timer.
@@ -164,10 +204,75 @@ script:
             - lambda: id(nav_idx) = 0;
             - script.execute: nav_show_page
 
+  # Central readiness handler. Recolours the three step indicators, updates the
+  # sub-status hint, and decides whether to show the panel UI or the overlay.
+  # Idempotent — safe to call repeatedly from any source (boot, status sensor,
+  # WiFi poll, UI packages on first entity state).
+  - id: nav_connection_check
+    mode: restart
+    then:
+      # Step 1: Wi-Fi indicator. Wi-Fi is always the first step, so when it's
+      # not done it's also "current" → show in HA-blue rather than dim grey.
+      - if:
+          condition: {lambda: 'return id(g_wifi_ok);'}
+          then: [{lvgl.widget.update: {id: ind_wifi, bg_color: 0x66dd66}}]
+          else: [{lvgl.widget.update: {id: ind_wifi, bg_color: 0x18BCF2}}]
+      # Step 2: HA API indicator. Current step iff Wi-Fi is up but API isn't.
+      - if:
+          condition: {lambda: 'return id(g_api_ok);'}
+          then: [{lvgl.widget.update: {id: ind_api, bg_color: 0x66dd66}}]
+          else:
+            - if:
+                condition: {lambda: 'return id(g_wifi_ok);'}
+                then: [{lvgl.widget.update: {id: ind_api, bg_color: 0x18BCF2}}]
+                else: [{lvgl.widget.update: {id: ind_api, bg_color: 0x444455}}]
+      # Step 3: Permissions indicator. Current step iff API is up but no
+      # subscription state has arrived yet.
+      - if:
+          condition: {lambda: 'return id(g_perms_ok);'}
+          then: [{lvgl.widget.update: {id: ind_perms, bg_color: 0x66dd66}}]
+          else:
+            - if:
+                condition: {lambda: 'return id(g_api_ok);'}
+                then: [{lvgl.widget.update: {id: ind_perms, bg_color: 0x18BCF2}}]
+                else: [{lvgl.widget.update: {id: ind_perms, bg_color: 0x444455}}]
+      # Sub-status text — names whichever step is currently blocking.
+      - lvgl.label.update:
+          id: lbl_connecting_substatus
+          text: !lambda |-
+            if (!id(g_wifi_ok)) return "Connecting to Wi-Fi...";
+            if (!id(g_api_ok)) return "Connecting to Home Assistant...";
+            if (!id(g_perms_ok)) return "Waiting for permissions...";
+            return "Connected";
+      # Overlay vs panel UI. Mirrors nav_connected so the rest of nav.yaml
+      # (swipe gating, auto-return) keeps using the same flag.
+      - if:
+          condition:
+            lambda: 'return id(g_wifi_ok) && id(g_api_ok) && id(g_perms_ok);'
+          then:
+            - lambda: |-
+                id(nav_connected) = true;
+                id(nav_idx) = 0;
+            - script.stop: anim_connecting_dots
+            - lvgl.widget.hide:
+                id: connecting_overlay
+            - lvgl.widget.show:
+                id: navbar
+            - script.execute: nav_show_page
+          else:
+            - lambda: |-
+                id(nav_connected) = false;
+                id(nav_idx) = 0;
+            - lvgl.widget.hide:
+                id: navbar
+            - lvgl.widget.show:
+                id: connecting_overlay
+            - script.execute: anim_connecting_dots
+
   # Connecting-overlay dot marquee: cycles which of the three dots is lit
-  # in HA blue (others dim) on a 300ms tick. `mode: restart` so the
-  # binary_sensor / on_boot callers can always (re)start it idempotently;
-  # the while loop terminates on its own once nav_connected flips true.
+  # in HA blue (others dim) on a 300ms tick. `mode: restart` so any caller
+  # can always (re)start it idempotently; the while loop terminates on its
+  # own once nav_connected flips true.
   - id: anim_connecting_dots
     mode: restart
     then:
@@ -285,18 +390,20 @@ lvgl:
 
       # ── Connecting overlay ─────────────────────────────────────────
       # Full-screen, covers navbar. Layout (all children `align: CENTER`,
-      # y relative to screen centre at 240px — clearances verified against
-      # rendered glyph/label heights so text never overlaps the animation):
-      #   y=-140   "Connecting"          (montserrat_28, ~36px)
-      #   y= -30   HA logo (96px icon)   — spans roughly -78 to +18
-      #   y= +80   three 14px dots       — animated by anim_connecting_dots
-      #   y=+160   "to Home Assistant"   (montserrat_14, ~18px)
-      #   y=+200   "vX.Y.Z" firmware     (montserrat_14, dim)
+      # y relative to screen centre at 240px):
+      #   y=-180   HA logo (96px icon)         — spans roughly y=12..108
+      #   y=-100   "Connecting" title          (montserrat_28, ~36px)
+      #   y= -50   Wi-Fi status row            (14px dot + label)
+      #   y= -10   Home Assistant status row
+      #   y= +30   Permissions status row
+      #   y= +90   three 14px dots             — animated by anim_connecting_dots
+      #   y=+140   sub-status hint             (which step is blocking)
+      #   y=+210   "vX.Y.Z" firmware           (montserrat_14, dim)
       #
-      # Dots rather than an LVGL spinner: the built-in spinner's track arc
-      # and inner fill defaulted to opaque styles that obscured the
-      # animation under the dark overlay. Three plain obj circles driven
-      # by a tight script are simpler and render reliably.
+      # Indicator colours (set by nav_connection_check):
+      #   0x444455 — pending (a future step, dim grey)
+      #   0x18BCF2 — current step in flight   (HA brand blue)
+      #   0x66dd66 — done                      (green)
       - obj:
           id: connecting_overlay
           x: 0
@@ -313,21 +420,129 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                y: -140
-                text: "Connecting"
-                text_font: montserrat_28
-                text_color: 0xffffff
-            - label:
-                align: CENTER
-                y: -30
+                y: -180
                 text: "\U000F07D0"          # mdi:home-assistant
                 text_font: ha_logo_icon
                 text_color: 0x18BCF2        # Home Assistant brand blue
+            - label:
+                align: CENTER
+                y: -100
+                text: "Connecting"
+                text_font: montserrat_28
+                text_color: 0xffffff
+
+            # ── Wi-Fi status row ─────────────────────────────────
+            - obj:
+                align: CENTER
+                y: -50
+                width: 240
+                height: 24
+                bg_opa: TRANSP
+                border_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                layout:
+                  type: FLEX
+                  flex_flow: ROW
+                  flex_align_main: START
+                  flex_align_cross: CENTER
+                  pad_column: 12
+                widgets:
+                  - obj:
+                      id: ind_wifi
+                      width: 14
+                      height: 14
+                      radius: 7
+                      border_width: 0
+                      pad_all: 0
+                      bg_color: 0x444455
+                      bg_opa: COVER
+                      scrollbar_mode: "off"
+                      scrollable: false
+                  - label:
+                      text: "Wi-Fi"
+                      text_font: montserrat_18
+                      text_color: 0xcccccc
+
+            # ── HA API status row ────────────────────────────────
+            - obj:
+                align: CENTER
+                y: -10
+                width: 240
+                height: 24
+                bg_opa: TRANSP
+                border_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                layout:
+                  type: FLEX
+                  flex_flow: ROW
+                  flex_align_main: START
+                  flex_align_cross: CENTER
+                  pad_column: 12
+                widgets:
+                  - obj:
+                      id: ind_api
+                      width: 14
+                      height: 14
+                      radius: 7
+                      border_width: 0
+                      pad_all: 0
+                      bg_color: 0x444455
+                      bg_opa: COVER
+                      scrollbar_mode: "off"
+                      scrollable: false
+                  - label:
+                      text: "Home Assistant"
+                      text_font: montserrat_18
+                      text_color: 0xcccccc
+
+            # ── Permissions status row ───────────────────────────
+            - obj:
+                align: CENTER
+                y: 30
+                width: 240
+                height: 24
+                bg_opa: TRANSP
+                border_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                layout:
+                  type: FLEX
+                  flex_flow: ROW
+                  flex_align_main: START
+                  flex_align_cross: CENTER
+                  pad_column: 12
+                widgets:
+                  - obj:
+                      id: ind_perms
+                      width: 14
+                      height: 14
+                      radius: 7
+                      border_width: 0
+                      pad_all: 0
+                      bg_color: 0x444455
+                      bg_opa: COVER
+                      scrollbar_mode: "off"
+                      scrollable: false
+                  - label:
+                      text: "Permissions"
+                      text_font: montserrat_18
+                      text_color: 0xcccccc
+
+            # ── Activity dots ────────────────────────────────────
+            # Dots rather than an LVGL spinner: the built-in spinner's track arc
+            # and inner fill defaulted to opaque styles that obscured the
+            # animation under the dark overlay. Three plain obj circles driven
+            # by a tight script are simpler and render reliably.
             - obj:
                 id: dot_0
                 align: CENTER
                 x: -30
-                y: 80
+                y: 90
                 width: 14
                 height: 14
                 radius: 7
@@ -341,7 +556,7 @@ lvgl:
                 id: dot_1
                 align: CENTER
                 x: 0
-                y: 80
+                y: 90
                 width: 14
                 height: 14
                 radius: 7
@@ -355,7 +570,7 @@ lvgl:
                 id: dot_2
                 align: CENTER
                 x: 30
-                y: 80
+                y: 90
                 width: 14
                 height: 14
                 radius: 7
@@ -365,18 +580,22 @@ lvgl:
                 bg_opa: COVER
                 scrollbar_mode: "off"
                 scrollable: false
+
+            # ── Sub-status hint ──────────────────────────────────
             - label:
+                id: lbl_connecting_substatus
                 align: CENTER
-                y: 160
-                text: "to Home Assistant"
-                text_font: montserrat_14
+                y: 140
+                text: "Connecting to Wi-Fi..."
+                text_font: montserrat_18
                 text_color: 0x888888
+
             # Firmware version — single source of truth is the
             # esphome.project.version field in esp32-hass-panel.yaml,
             # bumped automatically by release-please.
             - label:
                 align: CENTER
-                y: 200
+                y: 210
                 text: !lambda 'return std::string("v") + ESPHOME_PROJECT_VERSION;'
                 text_font: montserrat_14
                 text_color: 0x555555
