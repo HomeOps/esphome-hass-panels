@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.9.0...v1.9.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* **cradle:** deepen pocket so 13 mm device clears retention lip ([fe8db72](https://github.com/HomeOps/esphome-hass-panels/commit/fe8db72fd27584b4727985043be419fecd029634))
+
 ## [1.9.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.8.0...v1.9.0) (2026-04-25)
 
 
