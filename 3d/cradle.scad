@@ -5,12 +5,12 @@
 //   - 100 x 120 wall plate, mounts to a US single-gang box
 //     via 2 screws at 83.3 mm vertical spacing (gang box at the
 //     plate's vertical center; extra height is above the cradle).
-//   - 93 x 93 cradle rising 13 mm forward, aligned with the BOTTOM
+//   - 93 x 93 cradle rising 16 mm forward, aligned with the BOTTOM
 //     edge of the plate (plate extends upward above the cradle).
-//     Cavity 88 x 88 x 13. Front has a 4-sided 5 mm retention frame
-//     (bottom + top bars, left/right posts) that drops into the
-//     device's 5 mm front notch. Device installs by tilting it in
-//     from the front.
+//     Pocket 88 x 88 x 13 (cradle_depth = 13 mm device + 3 mm lip).
+//     Front has a 4-sided 5 mm retention frame (bottom + top bars,
+//     left/right posts) that drops into the device's 5 mm front
+//     notch. Device installs by tilting it in from the front.
 //   - 50 x 60 wire passthrough straight through the plate center.
 //
 // Material: PETG. 0.2 mm layer, 30% infill, 4 perimeters.
@@ -32,7 +32,7 @@ plate_bottom_z = -60;    // Z of plate's bottom edge (fixed anchor)
 // ---------- CRADLE ----------
 cradle_outer_w = 93;
 cradle_outer_h = 93;
-cradle_depth   = 13;
+cradle_depth   = 16;   // device_d (13) + front_lip_t (3) — full 13 mm pocket behind the lip
 wall_bottom_t  = 5;   // bottom lip the device rests on
 
 // ---------- FRONT RETENTION LIP ----------
