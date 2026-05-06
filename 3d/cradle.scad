@@ -113,10 +113,14 @@ union() {
             cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-left
         translate([ spine_w/2,    -0.1,  spine_w/2])
             cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-right
-        translate([-wire_hole_w/2, -0.1, -wire_hole_h/2])
-            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // lower-left
-        translate([ spine_w/2,    -0.1, -wire_hole_h/2])
-            cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // lower-right
+        // Lower quadrants extend 10 mm further down than upper, so the
+        // side strips of the bottom bar shrink from 25 mm to 15 mm while
+        // the central column keeps its full 25 mm to anchor the lower screw.
+        lower_extra_h = 10;
+        translate([-wire_hole_w/2, -0.1, -wire_hole_h/2 - lower_extra_h])
+            cube([wire_half_w, plate_t + 0.2, wire_half_h + lower_extra_h]);  // lower-left
+        translate([ spine_w/2,    -0.1, -wire_hole_h/2 - lower_extra_h])
+            cube([wire_half_w, plate_t + 0.2, wire_half_h + lower_extra_h]);  // lower-right
 
 // Bottom slot (USB-C + SD card) through the cradle's bottom lip.
         // Full Y depth of the cradle; Z extends 1 mm up into the cavity
