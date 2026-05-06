@@ -58,12 +58,13 @@ box_hole_d       = 4.2;  // #6-32 clearance
 bottom_slot_w    = 60;
 
 // ---------- CENTER SPINES ----------
-// 15 mm-wide uncut strips of plate material forming a cross through
-// the wire passthrough: one vertical (aligned with the screw
-// centerline), one horizontal. Not separate ribs — they are the
-// portions of the plate the wire hole does NOT cut away. The wire
-// passthrough is split into four quadrants around them.
-spine_w          = 15;
+// Uncut strips of plate material forming a cross through the wire
+// passthrough: one vertical (aligned with the screw centerline), one
+// horizontal. Not separate ribs — they are the portions of the plate
+// the wire hole does NOT cut away. The wire passthrough is split into
+// four quadrants around them.
+spine_w_v        = 10;   // vertical spine width (X), narrower so the screws still anchor
+spine_w_h        = 15;   // horizontal spine height (Z)
 
 $fn = 48;
 
@@ -105,13 +106,13 @@ union() {
         }
 
         // Wire passthrough: split into four quadrants separated by a
-        // cross of 15 mm-wide plate strips (vertical on the screw
-        // centerline, horizontal at the plate vertical center).
-        wire_half_w = (wire_hole_w - spine_w) / 2;
-        wire_half_h = (wire_hole_h - spine_w) / 2;
-        translate([-wire_hole_w/2, -0.1,  spine_w/2])
+        // cross of plate strips (vertical on the screw centerline,
+        // horizontal at the plate vertical center).
+        wire_half_w = (wire_hole_w - spine_w_v) / 2;
+        wire_half_h = (wire_hole_h - spine_w_h) / 2;
+        translate([-wire_hole_w/2, -0.1,  spine_w_h/2])
             cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-left
-        translate([ spine_w/2,    -0.1,  spine_w/2])
+        translate([ spine_w_v/2,  -0.1,  spine_w_h/2])
             cube([wire_half_w, plate_t + 0.2, wire_half_h]);  // upper-right
         // Lower quadrants extend 10 mm further down than upper, so the
         // side strips of the bottom bar shrink from 25 mm to 15 mm while
@@ -119,7 +120,7 @@ union() {
         lower_extra_h = 10;
         translate([-wire_hole_w/2, -0.1, -wire_hole_h/2 - lower_extra_h])
             cube([wire_half_w, plate_t + 0.2, wire_half_h + lower_extra_h]);  // lower-left
-        translate([ spine_w/2,    -0.1, -wire_hole_h/2 - lower_extra_h])
+        translate([ spine_w_v/2,  -0.1, -wire_hole_h/2 - lower_extra_h])
             cube([wire_half_w, plate_t + 0.2, wire_half_h + lower_extra_h]);  // lower-right
 
 // Bottom slot (USB-C + SD card) through the cradle's bottom lip.
