@@ -69,7 +69,7 @@ bottom_slot_w    = 60;
 // the wire hole does NOT cut away. The wire passthrough is split into
 // four quadrants around them.
 spine_w_v        = 10;   // vertical spine width (X), narrower so the screws still anchor
-spine_w_h        = 15;   // horizontal spine height (Z)
+spine_w_h        = 10;   // horizontal spine height (Z)
 
 // ---------- PRESSURE RIDGE ----------
 // Smooth-curve wedge on the plate's cradle-side face, centered on the
