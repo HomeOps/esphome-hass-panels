@@ -49,6 +49,11 @@ wire_hole_h    = 70;
 // ---------- GANG-BOX SCREWS ----------
 box_hole_spacing = 83.3;
 box_hole_d       = 4.2;  // #6-32 clearance
+// Counterbore on the device-facing surface so the screw head sits
+// below Y=plate_t and doesn't impede the device. Sized for #6 pan/oval
+// heads (~7.4 mm OD, ~2.5 mm tall).
+csk_d            = 8;    // counterbore diameter
+csk_h            = 3;    // counterbore depth (Y)
 
 // ---------- BOTTOM SLOT (USB-C + SD card) ----------
 // Wide opening through the cradle's bottom lip so the USB-C port and
@@ -144,11 +149,16 @@ union() {
                   cradle_depth + 0.02,
                   wall_bottom_t + 1.1]);
 
-        // US single-gang box screws (vertical centerline)
+        // US single-gang box screws (vertical centerline). Through-hole
+        // plus counterbore on the device-facing surface so the screw
+        // head sits below Y=plate_t.
         for (sz = [-1, 1])
             translate([0, -0.1, sz * box_hole_spacing / 2])
-                rotate([-90, 0, 0])
+                rotate([-90, 0, 0]) {
                     cylinder(h = plate_t + 0.2, d = box_hole_d);
+                    translate([0, 0, plate_t - csk_h + 0.1])
+                        cylinder(h = csk_h + 0.1, d = csk_d);
+                }
     }
 
     // Retention frame at the front face: 4-sided 5 mm-wide border that
