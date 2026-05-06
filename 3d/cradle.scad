@@ -28,7 +28,7 @@ plate_w        = 100;
 plate_h        = 110;    // 10 mm trimmed off the top vs original 120
 plate_t        = 5;
 plate_bottom_z = -60;    // Z of plate's bottom edge (fixed anchor)
-plate_corner_r = 5;      // outer corner radius (X-Z corners)
+plate_corner_r = 2;      // outer corner radius (capped at plate_t/2 = 2.5 by sphere-minkowski)
 
 // ---------- CRADLE ----------
 cradle_outer_w = 93;
@@ -102,19 +102,17 @@ union() {
     // planes with the lip.
     difference() {
         union() {
-            // Wall plate with rounded X-Z corners. Inset cube + thin
-            // Y-axis cylinder under minkowski rounds the four vertical
-            // edges by plate_corner_r without changing the plate's
-            // overall bounding box.
+            // Wall plate with all 12 edges and 8 vertices rounded.
+            // Inset cube + sphere minkowski rounds every edge by
+            // plate_corner_r without changing the plate's bounding box.
             minkowski() {
                 translate([-plate_w/2 + plate_corner_r,
-                           0,
+                           plate_corner_r,
                            plate_bottom_z + plate_corner_r])
                     cube([plate_w - 2*plate_corner_r,
-                          plate_t - 0.001,
+                          plate_t - 2*plate_corner_r,
                           plate_h - 2*plate_corner_r]);
-                rotate([-90, 0, 0])
-                    cylinder(h = 0.001, r = plate_corner_r);
+                sphere(r = plate_corner_r);
             }
 
             // Cradle: hollow shell (open top + open front).
