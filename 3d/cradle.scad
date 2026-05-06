@@ -66,6 +66,16 @@ bottom_slot_w    = 60;
 spine_w_v        = 10;   // vertical spine width (X), narrower so the screws still anchor
 spine_w_h        = 15;   // horizontal spine height (Z)
 
+// ---------- PRESSURE RIDGE ----------
+// Smooth-curve wedge on the plate's cradle-side face, centered on the
+// vertical spine. Cross-section in Y-Z is a half-ellipse: chord on
+// Y=plate_t, peak at the middle. Extends ridge_w along X.
+// Pushes the device against the front retention frame.
+ridge_w          = 10;   // X extent (matches spine width)
+ridge_h          = 30;   // Z extent (chord)
+ridge_r          =  1;   // Y peak (sagitta) above plate's back face
+ridge_z          = -24;  // Z center (between horizontal spine and lower screw)
+
 $fn = 48;
 
 // ---------- DERIVED ----------
@@ -170,4 +180,19 @@ union() {
                cradle_z - cradle_outer_h/2 + wall_bottom_t])
         cube([front_lip_w, front_lip_t,
               cradle_outer_h - wall_bottom_t]);               // right post
+
+    // Pressure ridge: half-ellipse cross-section in Y-Z (chord ridge_h,
+    // sagitta ridge_r), extruded along X. Rotation maps the polygon's
+    // X→model Z and the extrusion axis (polygon Z) → model X.
+    translate([0, plate_t, ridge_z])
+        rotate([0, -90, 0])
+            linear_extrude(height = ridge_w, center = true)
+                polygon([
+                    for (i = [0 : 48])
+                        let (
+                            u = -ridge_h/2 + ridge_h * i/48,
+                            v = ridge_r * sqrt(1 - (2*u/ridge_h) * (2*u/ridge_h))
+                        )
+                        [u, v]
+                ]);
 }
