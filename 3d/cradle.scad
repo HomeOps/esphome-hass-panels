@@ -79,7 +79,7 @@ spine_w_h        = 10;   // horizontal spine height (Z)
 // Pushes the device against the front retention frame.
 ridge_w          = 10;   // X extent (matches spine width)
 ridge_h          = 30;   // Z extent (chord)
-ridge_r          =  1;   // Y peak (sagitta) above plate's back face
+ridge_r          =  2;   // Y peak (sagitta) above plate's back face
 ridge_z          =  21;  // Z center (shifted 40 mm up; ridge sits between horizontal spine and top screw)
 
 $fn = 48;
