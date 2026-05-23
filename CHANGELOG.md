@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.10.0...v1.11.0) (2026-05-23)
+
+
+### Features
+
+* add bedroom sleep mode with touch-to-wake ([#39](https://github.com/HomeOps/esphome-hass-panels/issues/39)) ([805c3cf](https://github.com/HomeOps/esphome-hass-panels/commit/805c3cf16491a884d5018cebde7724e567c89920))
+
 ## [1.10.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.9.1...v1.10.0) (2026-05-06)
 
 
