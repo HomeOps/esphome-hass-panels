@@ -21,6 +21,12 @@ substitutions:
   sleep_mode_default_state: "ON"
   # Non-`-1` default — exercises the >= 6s auto-off timer path.
   sleep_mode_default_timeout: "30"
+  # Register energy_page in the swipe cycle so CI actually wires the
+  # strcmp("${nav_page_N}", "energy_page") routing in energy-ui.yaml.
+  # Without this, the page compiles but every strcmp resolves to
+  # false at YAML-merge time and the navbar status routing is dead.
+  nav_page_4: energy_page
+  nav_page_count: "4"
 
 packages:
   base: !include ../esp32-hass-panel.yaml
