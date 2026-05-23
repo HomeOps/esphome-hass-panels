@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.11.0...v2.0.0) (2026-05-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* per-device wrappers using `nav_home_page` as a page id, `nav_page_1`/`2`/`3` for slot 2/3/4, `garage_page`, `garage_entity_id`, or the `garage_ui:` include key must migrate to the new names. release-please will bump to 2.0.0.
+
+### Features
+
+* rename nav substitutions; rename garage to cover ([#41](https://github.com/HomeOps/esphome-hass-panels/issues/41)) ([0db35cc](https://github.com/HomeOps/esphome-hass-panels/commit/0db35ccefceff9adfd62b9b7d2a3b23446b55cf4))
+
 ## [1.11.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.10.0...v1.11.0) (2026-05-23)
 
 
