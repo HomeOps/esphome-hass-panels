@@ -135,6 +135,9 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `nav_page_3` | `alarm_page` | Page at index 3 (unused slots default to home) |
 | `nav_page_count` | `1` | Number of active pages in the swipe cycle (1–4) |
 | `nav_auto_return_delay` | `30s` | Idle time before auto-returning to home page |
+| **Sleep mode** | | |
+| `sleep_mode_default_state` | `OFF` | Factory-default state of the sleep-mode switch (`OFF` / `ON`). Set to `ON` for bedroom panels so they boot dark. HA-stored state wins on subsequent boots. |
+| `sleep_mode_default_timeout` | `-1` | Factory-default value of the auto-off timeout, in seconds. `-1` = never; values `0–5` snap to `-1`; `>=6` re-sleeps after that many idle seconds. |
 
 Override them on the command line or in a per-device YAML:
 

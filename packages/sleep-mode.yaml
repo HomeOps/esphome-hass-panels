@@ -31,6 +31,17 @@
 #   board.yaml's touchscreen on_touch/on_release branch on g_screen_awake
 #   and g_swallow_touch so a wake-touch doesn't propagate to nav/swipe.
 
+substitutions:
+  # Factory-default state of the sleep-mode switch (first boot or after a
+  # full erase). Set to "ON" for bedroom panels so the screen starts dark
+  # on first power-up. Once HA has flipped the toggle, the user-set value
+  # is restored from flash on subsequent boots regardless of this default.
+  # Must be "ON" or "OFF" — used verbatim as the RESTORE_DEFAULT_* suffix.
+  sleep_mode_default_state: "OFF"
+  # Factory-default value of the auto-off timeout, in seconds. -1 = never
+  # auto-sleep. See timeout semantics in the header comment.
+  sleep_mode_default_timeout: "-1"
+
 globals:
   # True while the backlight is lit and widgets accept touches.
   - id: g_screen_awake
@@ -50,7 +61,7 @@ switch:
     id: sleep_mode_enable
     name: Sleep Mode
     icon: mdi:bed
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_${sleep_mode_default_state}
     optimistic: true
     on_turn_on:
       - script.execute: sleep_mode_sleep
@@ -69,7 +80,7 @@ number:
     max_value: 3600
     step: 1
     restore_value: true
-    initial_value: -1
+    initial_value: ${sleep_mode_default_timeout}
     optimistic: true
     on_value:
       # Snap "too low" values (0–5s) to -1 so the screen never sleeps

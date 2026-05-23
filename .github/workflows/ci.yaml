@@ -55,3 +55,8 @@ jobs:
 
       - name: Compile firmware (ESP32-S3 / esp-idf)
         run: esphome compile esp32-hass-panel.yaml
+
+      - name: Compile test fixture (sleep-mode enabled, 30s timeout)
+        # Exercises non-default sleep_mode_default_state / _timeout
+        # substitutions in packages/sleep-mode.yaml.
+        run: esphome compile tests/esp32-hass-panel.yaml

@@ -1,0 +1,17 @@
+# CI fixture — non-default sleep-mode configuration.
+#
+# Wraps the main panel YAML and flips the two sleep-mode substitutions to
+# the opposite of their package defaults so CI exercises the
+# RESTORE_DEFAULT_ON branch of the template switch and the non-`-1` branch
+# of the timeout. Compile-only — never flashed to a real device.
+
+substitutions:
+  name: test-sleep-mode
+  friendly_name: Test Sleep Mode
+  # Boot straight into sleep state — exercises the on_boot path that calls
+  # sleep_mode_sleep and shows sleep_overlay at startup.
+  sleep_mode_default_state: "ON"
+  # Non-`-1` default — exercises the >= 6s auto-off timer path.
+  sleep_mode_default_timeout: "30"
+
+<<: !include ../esp32-hass-panel.yaml
