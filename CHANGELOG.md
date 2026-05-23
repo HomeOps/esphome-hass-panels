@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.0.0...v2.1.0) (2026-05-23)
+
+
+### Features
+
+* add energy monitoring page with low-power alert override ([#43](https://github.com/HomeOps/esphome-hass-panels/issues/43)) ([fd8c67b](https://github.com/HomeOps/esphome-hass-panels/commit/fd8c67be9a8bae9c98e11c65d52d164cb0ff05f7))
+
 ## [2.0.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.11.0...v2.0.0) (2026-05-23)
 
 
