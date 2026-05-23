@@ -1,0 +1,283 @@
+# Energy UI — whole-home battery + grid + low-power alert page
+#
+# Renders three Home Assistant entities on a dedicated LVGL page
+# (`energy_page`):
+#
+#   sensor.<...>       — battery state of charge, 0-100%
+#   binary_sensor.<…>  — grid online (on = on-grid, off = islanded)
+#   binary_sensor.<…>  — low-power alert (on = critical)
+#
+# When the low-power alert turns on, this package:
+#   1. Sets the sleep-mode bypass flag so the screen can't auto-sleep
+#      (also wakes it immediately if it was asleep).
+#   2. Force-navigates to `energy_page` IF a per-device wrapper has it
+#      registered in a nav_page_N slot. No-op otherwise — homes that
+#      don't expose this page get the sleep override but stay where
+#      they were.
+#   3. Flashes the page background red so the alert is visible from
+#      across the room.
+#
+# When the alert clears, all three reverse: stop flashing, clear bypass,
+# stop forcing the page. Navigation isn't undone — the user can swipe
+# away whenever they want.
+#
+# Dependencies:
+#   - sleep-mode.yaml — sleep_bypass_set / sleep_bypass_clear scripts.
+#   - nav.yaml       — g_nav_status_0..3 globals + nav_refresh_status.
+
+substitutions:
+  # HA entities this page binds to. Override per device. Defaults point at
+  # plausibly-named entities so a fresh build subscribes to something —
+  # if the entity doesn't exist in HA the subscription stays dormant and
+  # the page just shows "--".
+  energy_battery_entity_id: sensor.home_battery_charge
+  energy_grid_status_entity_id: binary_sensor.grid_online
+  energy_low_power_entity_id: binary_sensor.home_low_power_alert
+
+globals:
+  - id: g_battery_pct
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # True while the low-power alert is active. Drives the flash loop's
+  # while-condition (self-terminating) and gates whether
+  # sleep_bypass_clear is safe to call.
+  - id: g_low_power_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+sensor:
+  - platform: homeassistant
+    id: energy_battery_pct
+    entity_id: ${energy_battery_entity_id}
+    on_value:
+      - lambda: |-
+          int pct = (int) x;
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+          id(g_battery_pct) = pct;
+      - lvgl.label.update:
+          id: lbl_energy_battery_pct
+          text: !lambda 'return str_sprintf("%d%%", id(g_battery_pct));'
+      - lvgl.bar.update:
+          id: bar_energy_battery
+          value: !lambda 'return id(g_battery_pct);'
+          animated: true
+      # Color the % readout: green >= 60, amber 30-59, red < 30.
+      - if:
+          condition: {lambda: 'return id(g_battery_pct) >= 60;'}
+          then:
+            - lvgl.label.update: {id: lbl_energy_battery_pct, text_color: 0x66dd66}
+      - if:
+          condition:
+            lambda: 'return id(g_battery_pct) >= 30 && id(g_battery_pct) < 60;'
+          then:
+            - lvgl.label.update: {id: lbl_energy_battery_pct, text_color: 0xffaa33}
+      - if:
+          condition: {lambda: 'return id(g_battery_pct) < 30;'}
+          then:
+            - lvgl.label.update: {id: lbl_energy_battery_pct, text_color: 0xe94560}
+      # Navbar status: "Battery NN%" — whichever nav_page_N slot maps to
+      # energy_page picks up the line. Same routing pattern as the other
+      # UI packages.
+      - lambda: |-
+          char buf[32];
+          snprintf(buf, sizeof(buf), "Battery %d%%", id(g_battery_pct));
+          if (strcmp("${nav_page_1}", "energy_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_2}", "energy_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_3}", "energy_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_4}", "energy_page") == 0) id(g_nav_status_3) = buf;
+      - script.execute: nav_refresh_status
+
+binary_sensor:
+  - platform: homeassistant
+    id: energy_grid_online
+    entity_id: ${energy_grid_status_entity_id}
+    on_press:    # OFF -> ON  → grid came up
+      - lvgl.label.update:
+          id: lbl_energy_grid_status
+          text: "ON GRID"
+          text_color: 0x66dd66
+      - lvgl.label.update:
+          id: lbl_energy_grid_icon
+          text_color: 0x66dd66
+    on_release:  # ON -> OFF  → grid dropped
+      - lvgl.label.update:
+          id: lbl_energy_grid_status
+          text: "OFF GRID"
+          text_color: 0xe94560
+      - lvgl.label.update:
+          id: lbl_energy_grid_icon
+          text_color: 0xe94560
+
+  - platform: homeassistant
+    id: energy_low_power
+    entity_id: ${energy_low_power_entity_id}
+    on_press:    # alert begins
+      - lambda: 'id(g_low_power_active) = true;'
+      - script.execute: sleep_bypass_set
+      - script.execute: energy_page_force_home
+      - lvgl.widget.show: {id: energy_low_power_banner}
+      - script.execute: anim_energy_low_power_flash
+    on_release:  # alert clears
+      - lambda: 'id(g_low_power_active) = false;'
+      - script.stop: anim_energy_low_power_flash
+      - lvgl.widget.hide: {id: energy_low_power_banner}
+      - lvgl.widget.update: {id: energy_page_root, bg_color: 0x1a1a2e}
+      - script.execute: sleep_bypass_clear
+
+script:
+  # If the panel has energy_page registered in one of its nav_page_N
+  # slots, jump there. No-op for panels that don't expose the page —
+  # the sleep bypass + flash still fire, but the user sees them on
+  # whatever page is currently active.
+  - id: energy_page_force_home
+    then:
+      - lambda: |-
+          int target = -1;
+          if      (strcmp("${nav_page_1}", "energy_page") == 0) target = 0;
+          else if (strcmp("${nav_page_2}", "energy_page") == 0) target = 1;
+          else if (strcmp("${nav_page_3}", "energy_page") == 0) target = 2;
+          else if (strcmp("${nav_page_4}", "energy_page") == 0) target = 3;
+          if (target >= 0) id(nav_idx) = target;
+      - if:
+          condition:
+            lambda: |-
+              return (strcmp("${nav_page_1}", "energy_page") == 0) ||
+                     (strcmp("${nav_page_2}", "energy_page") == 0) ||
+                     (strcmp("${nav_page_3}", "energy_page") == 0) ||
+                     (strcmp("${nav_page_4}", "energy_page") == 0);
+          then:
+            - script.execute: nav_show_page
+
+  # Page-bg flash while the low-power alert is active. Alternates between
+  # the dark default and HA-red on a 500ms tick. `mode: restart` so any
+  # caller can re-arm idempotently; the while loop self-terminates
+  # when g_low_power_active goes false.
+  - id: anim_energy_low_power_flash
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return id(g_low_power_active);'
+          then:
+            - lvgl.widget.update: {id: energy_page_root, bg_color: 0xe94560}
+            - delay: 500ms
+            - lvgl.widget.update: {id: energy_page_root, bg_color: 0x1a1a2e}
+            - delay: 500ms
+
+font:
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: mdi_icons_energy
+    size: 40
+    glyphs:
+      - "\U000F06A5"  # mdi:power-plug
+      - "\U000F0079"  # mdi:battery
+      - "\U000F0026"  # mdi:alert-circle
+
+lvgl:
+  pages:
+    - id: energy_page
+      widgets:
+        - obj:
+            id: energy_page_root
+            width: ${display_width}
+            height: ${display_height}
+            pad_all: 0
+            bg_color: 0x1a1a2e
+            border_width: 0
+            scrollbar_mode: "off"
+            scrollable: false
+            widgets:
+
+              # ── Battery section ───────────────────────────────────
+              - label:
+                  align: TOP_MID
+                  y: 70
+                  text: "\U000F0079"  # mdi:battery
+                  text_font: mdi_icons_energy
+                  text_color: 0xcccccc
+              - label:
+                  id: lbl_energy_battery_pct
+                  align: TOP_MID
+                  y: 120
+                  text: "--%"
+                  text_font: montserrat_48
+                  text_color: 0xcccccc
+              - bar:
+                  id: bar_energy_battery
+                  align: TOP_MID
+                  y: 180
+                  width: 360
+                  height: 20
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  bg_color: 0x0f3460
+                  border_width: 0
+                  radius: 10
+                  indicator:
+                    bg_color: 0x66dd66
+                    radius: 10
+
+              # ── Grid status row ───────────────────────────────────
+              - obj:
+                  align: TOP_MID
+                  y: 230
+                  width: 360
+                  height: 60
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 8
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                    pad_column: 14
+                  widgets:
+                    - label:
+                        id: lbl_energy_grid_icon
+                        text: "\U000F06A5"  # mdi:power-plug
+                        text_font: mdi_icons_energy
+                        text_color: 0xcccccc
+                    - label:
+                        id: lbl_energy_grid_status
+                        text: "--"
+                        text_font: montserrat_28
+                        text_color: 0xcccccc
+
+              # ── Low-power banner (hidden when ok; shown + page bg
+              #     flashing while the alert is active) ──────────────
+              - obj:
+                  id: energy_low_power_banner
+                  align: BOTTOM_MID
+                  y: -30
+                  width: 440
+                  height: 80
+                  bg_color: 0xe94560
+                  border_width: 0
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  hidden: true
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                    pad_column: 14
+                  widgets:
+                    - label:
+                        text: "\U000F0026"  # mdi:alert-circle
+                        text_font: mdi_icons_energy
+                        text_color: 0xffffff
+                    - label:
+                        text: "LOW POWER"
+                        text_font: montserrat_28
+                        text_color: 0xffffff

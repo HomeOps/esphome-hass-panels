@@ -55,6 +55,15 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Sleep bypass: when true, sleep_mode_sleep is a no-op and
+  # sleep_mode_auto_off's countdown skipped. Set/cleared by other packages
+  # via the sleep_bypass_set / sleep_bypass_clear scripts to keep the
+  # screen forcibly on for an alert condition (e.g. energy-ui's
+  # low-power binary sensor).
+  - id: g_sleep_bypass
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 switch:
   - platform: template
@@ -113,23 +122,29 @@ script:
 
   # Sleep: reset to the configured home page (nav_home_page) so wake always
   # lands there rather than wherever the last user left it. Then
-  # show black overlay, fade backlight off.
+  # show black overlay, fade backlight off. No-op while g_sleep_bypass
+  # is set (an alert condition needs the screen on).
   - id: sleep_mode_sleep
     mode: restart
     then:
-      - lambda: |-
-          id(g_screen_awake) = false;
-          id(nav_idx) = ${nav_home_page} - 1;
-      - script.execute: nav_show_page
-      - lvgl.widget.show:
-          id: sleep_overlay
-      - light.turn_off:
-          id: display_backlight
-          transition_length: 500ms
+      - if:
+          condition:
+            lambda: 'return !id(g_sleep_bypass);'
+          then:
+            - lambda: |-
+                id(g_screen_awake) = false;
+                id(nav_idx) = ${nav_home_page} - 1;
+            - script.execute: nav_show_page
+            - lvgl.widget.show:
+                id: sleep_overlay
+            - light.turn_off:
+                id: display_backlight
+                transition_length: 500ms
 
   # Idle auto-off. Restart-mode → each touch (board.yaml) re-arms it.
-  # Disabled when sleep mode is off, the screen is already asleep, or the
-  # configured timeout is below the 6 s usability floor.
+  # Disabled when sleep mode is off, the screen is already asleep, the
+  # configured timeout is below the 6 s usability floor, or another
+  # package has flipped g_sleep_bypass (e.g. an active low-power alert).
   - id: sleep_mode_auto_off
     mode: restart
     then:
@@ -138,11 +153,31 @@ script:
             lambda: |-
               return id(sleep_mode_enable).state &&
                      id(g_screen_awake) &&
-                     id(sleep_mode_timeout).state >= 6.0f;
+                     id(sleep_mode_timeout).state >= 6.0f &&
+                     !id(g_sleep_bypass);
           then:
             - delay: !lambda |-
                 return (uint32_t)(id(sleep_mode_timeout).state * 1000);
             - script.execute: sleep_mode_sleep
+
+  # Generic sleep-bypass entry point for other packages. Setting the
+  # flag also wakes the screen if it was asleep so the caller's alert
+  # is visible immediately.
+  - id: sleep_bypass_set
+    then:
+      - lambda: 'id(g_sleep_bypass) = true;'
+      - if:
+          condition:
+            lambda: 'return !id(g_screen_awake);'
+          then:
+            - script.execute: sleep_mode_wake
+
+  # Clear the bypass and re-arm the idle timer (which will only do
+  # anything if sleep mode is enabled and the timeout is sane).
+  - id: sleep_bypass_clear
+    then:
+      - lambda: 'id(g_sleep_bypass) = false;'
+      - script.execute: sleep_mode_auto_off
 
 # If sleep mode was on before a reboot, RESTORE_DEFAULT_OFF brings the
 # switch back as ON (template switch restores user state). This on_boot
