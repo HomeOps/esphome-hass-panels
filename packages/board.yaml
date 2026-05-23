@@ -6,6 +6,38 @@
 #   https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
 #   https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
 
+# Package defaults — match the Guition ESP32-S3-4848S040 reference board.
+# Overridable from the entry-point YAML (main config or per-device wrapper)
+# to target a different hardware variant without re-declaring every pin.
+substitutions:
+  display_platform: "st7701s"
+  display_width: "480"
+  display_height: "480"
+  display_rotation: "270"
+  display_color_order: "RGB"
+  display_invert_colors: "False"
+  display_spi_mode: "MODE3"
+  display_data_rate: "2MHz"
+  display_pclk_frequency: "12MHz"
+  display_pclk_inverted: "False"
+  display_hsync_pulse_width: "8"
+  display_hsync_front_porch: "10"
+  display_hsync_back_porch: "20"
+  display_vsync_pulse_width: "8"
+  display_vsync_front_porch: "10"
+  display_vsync_back_porch: "10"
+  display_cs_pin: "39"
+  display_de_pin: "18"
+  display_hsync_pin: "16"
+  display_vsync_pin: "17"
+  display_pclk_pin: "21"
+  spi_clk_pin: "GPIO48"
+  spi_mosi_pin: "GPIO47"
+  i2c_sda_pin: "GPIO19"
+  i2c_scl_pin: "45"
+  touchscreen_platform: "gt911"
+  backlight_pin: "GPIO38"
+
 # Backlight — ${backlight_pin}, PWM via LEDC
 output:
   - platform: ledc

@@ -1,17 +1,26 @@
-# CI fixture — non-default sleep-mode configuration.
+# CI fixture — non-default sleep-mode configuration on the full panel.
 #
-# Wraps the main panel YAML and flips the two sleep-mode substitutions to
-# the opposite of their package defaults so CI exercises the
-# RESTORE_DEFAULT_ON branch of the template switch and the non-`-1` branch
-# of the timeout. Compile-only — never flashed to a real device.
+# Wraps the main panel YAML via the ESPHome `packages:` mechanism (NOT
+# `<<: !include`, which is plain YAML merge and replaces the included
+# substitutions: block wholesale — every display_*/thermostat_*/garage_*
+# substitution would become undefined). With packages:, parent
+# substitutions override package substitutions and the rest cascade
+# untouched.
+#
+# Flips both sleep-mode substitutions to the opposite of their package
+# defaults so CI exercises the RESTORE_DEFAULT_ON branch of the template
+# switch and the non-`-1` branch of the auto-off timer.
+#
+# Compile-only — never flashed to a real device.
 
 substitutions:
   name: test-sleep-mode
   friendly_name: Test Sleep Mode
-  # Boot straight into sleep state — exercises the on_boot path that calls
-  # sleep_mode_sleep and shows sleep_overlay at startup.
+  # Boot straight into sleep state — exercises the on_boot path that
+  # calls sleep_mode_sleep and shows sleep_overlay at startup.
   sleep_mode_default_state: "ON"
   # Non-`-1` default — exercises the >= 6s auto-off timer path.
   sleep_mode_default_timeout: "30"
 
-<<: !include ../esp32-hass-panel.yaml
+packages:
+  base: !include ../esp32-hass-panel.yaml
