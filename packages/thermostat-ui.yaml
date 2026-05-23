@@ -30,10 +30,10 @@ sensor:
           if (preset.empty()) preset = "--";
           char buf[64];
           snprintf(buf, sizeof(buf), "%s - %.1f C", preset.c_str(), x);
-          if (strcmp("${nav_home_page}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
-          if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
-          if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_2) = buf;
-          if (strcmp("${nav_page_3}", "thermostat_page") == 0) id(g_nav_status_3) = buf;
+          if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_3}", "thermostat_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_4}", "thermostat_page") == 0) id(g_nav_status_3) = buf;
       - script.execute: nav_refresh_status
 
   - platform: homeassistant
@@ -71,10 +71,10 @@ text_sensor:
       - lambda: |-
           char buf[64];
           snprintf(buf, sizeof(buf), "%s - %.1f C", x.c_str(), id(clim_current_temp).state);
-          if (strcmp("${nav_home_page}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
-          if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
-          if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_2) = buf;
-          if (strcmp("${nav_page_3}", "thermostat_page") == 0) id(g_nav_status_3) = buf;
+          if (strcmp("${nav_page_1}", "thermostat_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_2}", "thermostat_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_3}", "thermostat_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_4}", "thermostat_page") == 0) id(g_nav_status_3) = buf;
       - script.execute: nav_refresh_status
       - lvgl.dropdown.update:
           id: dd_preset_mode

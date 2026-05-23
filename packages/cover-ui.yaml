@@ -1,5 +1,6 @@
-# Garage door UI — LVGL interface wired to Home Assistant cover entity
-# Board-independent; include alongside board.yaml.
+# Cover UI — LVGL interface wired to a Home Assistant `cover.*` entity
+# (garage door, blinds, gate, awning, etc.). Board-independent; include
+# alongside board.yaml.
 #
 # Layout (480×480 display, nav_bar_height=60):
 #   y=  0..59   — navbar (top_layer, handled by nav.yaml)
@@ -12,6 +13,10 @@
 #   When the cover exposes `current_position` (0-100), the bar widget
 #   shows true progress. Otherwise, a sliding block (marquee) runs while
 #   state is opening/closing to signal motion without faking progress.
+
+substitutions:
+  # HA cover entity this page controls. Override per device when needed.
+  cover_entity_id: cover.garage_door
 
 globals:
   # Flips true the first time HA reports `current_position`. Controls
@@ -32,7 +37,7 @@ globals:
 sensor:
   - platform: homeassistant
     id: cov_position
-    entity_id: ${garage_entity_id}
+    entity_id: ${cover_entity_id}
     attribute: current_position
     on_value:
       - lambda: id(garage_pos_known) = true;
@@ -46,7 +51,7 @@ sensor:
 text_sensor:
   - platform: homeassistant
     id: cov_friendly_name
-    entity_id: ${garage_entity_id}
+    entity_id: ${cover_entity_id}
     attribute: friendly_name
     on_value:
       - lvgl.label.update:
@@ -55,7 +60,7 @@ text_sensor:
 
   - platform: homeassistant
     id: cov_state
-    entity_id: ${garage_entity_id}
+    entity_id: ${cover_entity_id}
     on_value:
       # State text
       - lvgl.label.update:
@@ -113,10 +118,10 @@ text_sensor:
           else if (x == "closing") st = "Closing";
           else st = x;
           std::string buf = name + " - " + st;
-          if (strcmp("${nav_home_page}", "garage_page") == 0) id(g_nav_status_0) = buf;
-          if (strcmp("${nav_page_1}", "garage_page") == 0) id(g_nav_status_1) = buf;
-          if (strcmp("${nav_page_2}", "garage_page") == 0) id(g_nav_status_2) = buf;
-          if (strcmp("${nav_page_3}", "garage_page") == 0) id(g_nav_status_3) = buf;
+          if (strcmp("${nav_page_1}", "cover_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_2}", "cover_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_3}", "cover_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_4}", "cover_page") == 0) id(g_nav_status_3) = buf;
       - script.execute: nav_refresh_status
 
 script:
@@ -125,21 +130,21 @@ script:
       - homeassistant.service:
           service: cover.open_cover
           data:
-            entity_id: ${garage_entity_id}
+            entity_id: ${cover_entity_id}
 
   - id: garage_close_cmd
     then:
       - homeassistant.service:
           service: cover.close_cover
           data:
-            entity_id: ${garage_entity_id}
+            entity_id: ${cover_entity_id}
 
   - id: garage_stop_cmd
     then:
       - homeassistant.service:
           service: cover.stop_cover
           data:
-            entity_id: ${garage_entity_id}
+            entity_id: ${cover_entity_id}
 
   # Indeterminate marquee: a 100px block ping-pongs across the 460px
   # track while the cover is opening/closing without a reported position.
@@ -176,7 +181,7 @@ font:
 
 lvgl:
   pages:
-    - id: garage_page
+    - id: cover_page
       widgets:
         - obj:
             width: ${display_width}

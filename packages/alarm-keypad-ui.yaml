@@ -76,10 +76,10 @@ text_sensor:
           else if (x == "pending")    txt = "PENDING...";
           else if (x == "triggered")  txt = "!! TRIGGERED !!";
           else txt = x;
-          if (strcmp("${nav_home_page}", "alarm_page") == 0) id(g_nav_status_0) = txt;
-          if (strcmp("${nav_page_1}", "alarm_page") == 0) id(g_nav_status_1) = txt;
-          if (strcmp("${nav_page_2}", "alarm_page") == 0) id(g_nav_status_2) = txt;
-          if (strcmp("${nav_page_3}", "alarm_page") == 0) id(g_nav_status_3) = txt;
+          if (strcmp("${nav_page_1}", "alarm_page") == 0) id(g_nav_status_0) = txt;
+          if (strcmp("${nav_page_2}", "alarm_page") == 0) id(g_nav_status_1) = txt;
+          if (strcmp("${nav_page_3}", "alarm_page") == 0) id(g_nav_status_2) = txt;
+          if (strcmp("${nav_page_4}", "alarm_page") == 0) id(g_nav_status_3) = txt;
       # Update status bar with state and appropriate color
       - lvgl.label.update:
           id: lbl_alarm_status

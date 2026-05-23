@@ -48,19 +48,21 @@ substitutions:
   thermostat_temp_min: "16.0"
   thermostat_temp_max: "30.0"
   thermostat_temp_step: "0.5"
-  # Garage door entity — any HA `cover.*` (garage door opener)
-  garage_entity_id: cover.garage_door
-  # Navigation — register all pages in the swipe cycle
-  nav_home_page: alarm_page
-  nav_page_1: thermostat_page
-  nav_page_2: garage_page
+  # Cover entity — any HA `cover.*` (garage door opener, blinds, gate, …)
+  cover_entity_id: cover.garage_door
+  # Navigation — register all pages in the swipe cycle (1-based)
+  nav_page_1: alarm_page
+  nav_page_2: thermostat_page
+  nav_page_3: cover_page
   nav_page_count: "3"
+  # nav_home_page defaults to "1" in packages/nav.yaml — override here
+  # if a different declared page should be the landing / auto-return target.
 
 packages:
   board: !include packages/board.yaml
   alarm_ui: !include packages/alarm-keypad-ui.yaml
   thermostat_ui: !include packages/thermostat-ui.yaml
-  garage_ui: !include packages/garage-door-ui.yaml
+  cover_ui: !include packages/cover-ui.yaml
   nav: !include packages/nav.yaml
   sleep_mode: !include packages/sleep-mode.yaml
 

@@ -111,14 +111,15 @@ script:
           transition_length: 200ms
       - script.execute: sleep_mode_auto_off
 
-  # Sleep: reset to home page (so wake always lands on the alarm keypad),
+  # Sleep: reset to the configured home page (nav_home_page) so wake always
+  # lands there rather than wherever the last user left it. Then
   # show black overlay, fade backlight off.
   - id: sleep_mode_sleep
     mode: restart
     then:
       - lambda: |-
           id(g_screen_awake) = false;
-          id(nav_idx) = 0;
+          id(nav_idx) = ${nav_home_page} - 1;
       - script.execute: nav_show_page
       - lvgl.widget.show:
           id: sleep_overlay
