@@ -53,5 +53,47 @@ jobs:
         # No valid keys in test fixtures — strip the encryption block
         run: sed -i '/^  encryption:/,/^    key:/d' esp32-hass-panel.yaml
 
+      # All compile steps use tests/compile.py, which mutes ESPHome's
+      # unsuppressable GPIO19/GPIO20 USB-Serial-JTAG warning (board-fixed
+      # pins: GPIO19 = touchscreen I2C SDA, GPIO20 = display green data
+      # line — no per-pin opt-out in ESPHome's schema). Every other
+      # warning still surfaces, and the grep guard fails the build on
+      # any of them.
+
       - name: Compile firmware (ESP32-S3 / esp-idf)
-        run: esphome compile esp32-hass-panel.yaml
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile esp32-hass-panel.yaml 2>&1 \
+              | tee main-build.log
+          if grep -E '^WARNING ' main-build.log; then
+              echo "::error::Unexpected warning(s) in main build (above)"
+              exit 1
+          fi
+
+      - name: Compile test fixture (sleep-mode enabled, 30s timeout)
+        # Exercises non-default sleep_mode_default_state / _timeout
+        # substitutions in packages/sleep-mode.yaml against the full panel.
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile tests/esp32-hass-panel.yaml 2>&1 \
+              | tee sleep-override-build.log
+          if grep -E '^WARNING ' sleep-override-build.log; then
+              echo "::error::Unexpected warning(s) in sleep-override build (above)"
+              exit 1
+          fi
+
+      - name: Compile bedroom alarm panel (one-page sleep test)
+        # Slim alarm-only (nav_page_count: 1) bedroom config with sleep
+        # mode enabled by default and minimal substitutions (board /
+        # alarm defaults come from the packages).
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile tests/bedroom-alarm-panel.yaml 2>&1 \
+              | tee bedroom-build.log
+          if grep -E '^WARNING ' bedroom-build.log; then
+              echo "::error::Unexpected warning(s) in bedroom-alarm-panel build (above)"
+              exit 1
+          fi

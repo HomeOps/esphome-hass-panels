@@ -44,6 +44,12 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **Idle auto-return** — returns to the home page after a configurable timeout (default 30 s)
 - **Extensible** — supports up to 4 pages via substitutions; unused slots safely no-op
 
+### Sleep mode (for bedrooms)
+- **Touch-to-wake** — when enabled, the backlight stays off and a black overlay blocks click-through. The first touch only wakes the screen; it does not activate the widget under the finger
+- **Idle auto-off** — after a configurable period of inactivity, the panel sleeps itself again
+- **HA-exposed controls** — `switch.<device>_sleep_mode` and `number.<device>_sleep_mode_timeout`, both persisted to flash and toggleable per device without re-flashing
+- **Timeout values** — `-1` (default) never auto-sleeps after a wake; `0–5 s` are snapped to `-1` (too short to use); `≥6 s` re-sleeps after that many idle seconds
+
 ### General
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
@@ -57,6 +63,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
+| `packages/sleep-mode.yaml` | Bedroom sleep mode — touch-to-wake backlight + idle auto-off, exposed to HA as a switch + number |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
 | `3d/cradle.scad` | OpenSCAD source for the 3D-printable wall-mount cradle |
@@ -128,38 +135,81 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `nav_page_3` | `alarm_page` | Page at index 3 (unused slots default to home) |
 | `nav_page_count` | `1` | Number of active pages in the swipe cycle (1–4) |
 | `nav_auto_return_delay` | `30s` | Idle time before auto-returning to home page |
+| **Sleep mode** | | |
+| `sleep_mode_default_state` | `OFF` | Factory-default state of the sleep-mode switch (`OFF` / `ON`). Set to `ON` for bedroom panels so they boot dark. HA-stored state wins on subsequent boots. |
+| `sleep_mode_default_timeout` | `-1` | Factory-default value of the auto-off timeout, in seconds. `-1` = never; values `0–5` snap to `-1`; `>=6` re-sleeps after that many idle seconds. |
 
-Override them on the command line or in a per-device YAML:
+Per-device YAML pulls in `esp32-hass-panel.yaml` as a single [ESPHome git
+package](https://esphome.io/components/packages#git-source) and overrides
+only what's specific to that device.
 
-```yaml
-# home-alarm-keypad-downstairs.yaml
-substitutions:
-  name: home-alarm-keypad-downstairs
-  friendly_name: Home Alarm Keypad Downstairs
+### 1-page panel (bedroom — alarm only, sleep mode on)
 
-<<: !include esp32-hass-panel.yaml
-```
-
-To compose multiple UI panels on a larger screen, add more packages and register the pages:
+`panel-bedroom.yaml`:
 
 ```yaml
-# home-panel.yaml — alarm + thermostat on a 800x480 display
 substitutions:
-  name: home-panel
-  friendly_name: Home Panel
-  display_width: "800"
-  display_height: "480"
-  display_rotation: "0"
-  # Register thermostat as the second swipe page
-  nav_home_page: alarm_page
-  nav_page_1: thermostat_page
-  nav_page_count: "2"
+  name: panel-bedroom
+  friendly_name: Bedroom Panel
+  alarm_entity_id: alarm_control_panel.home_alarm
+  nav_page_count: "1"
+  sleep_mode_default_state: "ON"
+  sleep_mode_default_timeout: "60"
 
 packages:
-  board: !include packages/board.yaml
-  alarm_ui: !include packages/alarm-keypad-ui.yaml
-  thermostat_ui: !include packages/thermostat-ui.yaml
-  nav: !include packages/nav.yaml
+  keypad:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: main          # or a tag like `v1.9.1` to pin
+    file: esp32-hass-panel.yaml
+    refresh: 0d        # always re-pull on compile
+```
+
+### 2-page panel (alarm + thermostat)
+
+`panel-hallway.yaml`:
+
+```yaml
+substitutions:
+  name: panel-hallway
+  friendly_name: Hallway Panel
+  alarm_entity_id: alarm_control_panel.home_alarm
+  thermostat_entity_id: climate.hallway_thermostat
+  nav_page_count: "2"
+  nav_page_1: thermostat_page
+
+packages:
+  keypad:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: main
+    file: esp32-hass-panel.yaml
+    refresh: 0d
+```
+
+### Substitution cheat sheet
+
+| Want… | Set… |
+|---|---|
+| 1 page — alarm only | `nav_page_count: "1"` |
+| 2 pages — alarm + thermostat | `nav_page_count: "2"`, `nav_page_1: thermostat_page`, `thermostat_entity_id: ...` |
+| 3 pages — alarm + thermostat + garage (default) | `nav_page_count: "3"`, `nav_page_1: thermostat_page`, `nav_page_2: garage_page`, `thermostat_entity_id: ...`, `garage_entity_id: ...` |
+| Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and (optionally) `sleep_mode_default_timeout: "<seconds>"` |
+| Pin to a release | `ref: v1.9.1` instead of `ref: main` |
+
+### secrets.yaml requirements
+
+The per-device YAML's directory must contain a `secrets.yaml`. ESPHome
+resolves every `!secret` reference (including ones inside the
+git-fetched panel YAML) against the *entry-point* config's directory,
+so all of the following keys must be present even though the references
+live in the fetched file:
+
+```yaml
+wifi_ssid: "..."
+wifi_password: "..."
+api_encryption_key: "..."   # generate: esphome generate-api-key
+ota_password: "..."
+ap_ssid: "..."
+ap_password: "..."
 ```
 
 ## secrets.yaml format

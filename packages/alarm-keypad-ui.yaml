@@ -15,6 +15,10 @@
 #   Writes formatted alarm state to any nav slot mapped to alarm_page, then calls
 #   nav_refresh_status.
 
+substitutions:
+  # HA alarm entity this keypad controls. Override per device when needed.
+  alarm_entity_id: alarm_control_panel.home_alarm
+
 globals:
   - id: entered_code
     type: std::string
