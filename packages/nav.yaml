@@ -13,11 +13,14 @@
 # Supports up to 4 panel pages. Register them in your instance YAML:
 #
 #   substitutions:
-#     nav_home_page:  alarm_page      # index 0, always required
-#     nav_page_1:     thermostat_page # index 1
-#     nav_page_2:     alarm_page      # unused slots default to home page (safe no-op)
-#     nav_page_3:     alarm_page
+#     nav_page_1:     alarm_page      # leftmost swipe slot
+#     nav_page_2:     thermostat_page
+#     nav_page_3:     alarm_page      # unused slots fall back to nav_page_1
+#     nav_page_4:     alarm_page
 #     nav_page_count: "2"             # how many slots are active (1–4)
+#     nav_home_page:  "1"             # 1-based index of the landing page
+#                                     # (shown on connect, target of idle return).
+#                                     # Defaults to "1". Must be <= nav_page_count.
 #
 # Contract with board.yaml:
 #   board.yaml populates globals nav_swipe_start_x / nav_last_touch_x / nav_swipe_dx
@@ -33,11 +36,12 @@
 #   HA has accepted our subscriptions (i.e. permissions granted).
 
 substitutions:
-  nav_home_page: alarm_page
-  nav_page_1: alarm_page      # unused → redirect to home (safe no-op)
-  nav_page_2: alarm_page
+  nav_page_1: alarm_page      # leftmost swipe slot (default first page)
+  nav_page_2: alarm_page      # unused slots fall back to nav_page_1 (safe no-op)
   nav_page_3: alarm_page
+  nav_page_4: alarm_page
   nav_page_count: "1"
+  nav_home_page: "1"          # 1-based index of the landing page (1..nav_page_count)
   nav_auto_return_delay: 30s
   nav_bar_height: "60"        # pixels — page content must start below this value
 
@@ -159,21 +163,22 @@ script:
             - lambda: id(nav_idx) = (id(nav_idx) + ${nav_page_count} - 1) % ${nav_page_count};
             - script.execute: nav_show_page
 
-  # Show the page that matches nav_idx, then refresh the status label.
+  # Show the page that matches nav_idx (0-based internal), then refresh
+  # the status label. nav_idx == N maps to nav_page_(N+1).
   - id: nav_show_page
     then:
       - if:
           condition: {lambda: return id(nav_idx) == 0;}
-          then: [{lvgl.page.show: "${nav_home_page}"}]
-      - if:
-          condition: {lambda: return id(nav_idx) == 1;}
           then: [{lvgl.page.show: "${nav_page_1}"}]
       - if:
-          condition: {lambda: return id(nav_idx) == 2;}
+          condition: {lambda: return id(nav_idx) == 1;}
           then: [{lvgl.page.show: "${nav_page_2}"}]
       - if:
-          condition: {lambda: return id(nav_idx) == 3;}
+          condition: {lambda: return id(nav_idx) == 2;}
           then: [{lvgl.page.show: "${nav_page_3}"}]
+      - if:
+          condition: {lambda: return id(nav_idx) == 3;}
+          then: [{lvgl.page.show: "${nav_page_4}"}]
       - script.execute: nav_refresh_status
 
   # Update the navbar status label from the active panel's status string.
@@ -192,7 +197,8 @@ script:
           else
             lv_label_set_text(id(lbl_nav_status), "");
 
-  # Auto-return: only fires when connected; resets to home page.
+  # Auto-return: only fires when connected; resets to the home page
+  # (whichever nav_page_N is selected by nav_home_page).
   - id: auto_return
     mode: restart
     then:
@@ -201,7 +207,7 @@ script:
           condition:
             lambda: return id(nav_connected);
           then:
-            - lambda: id(nav_idx) = 0;
+            - lambda: id(nav_idx) = ${nav_home_page} - 1;
             - script.execute: nav_show_page
 
   # Central readiness handler. Recolours the three step indicators, updates the
@@ -252,7 +258,7 @@ script:
           then:
             - lambda: |-
                 id(nav_connected) = true;
-                id(nav_idx) = 0;
+                id(nav_idx) = ${nav_home_page} - 1;
             - script.stop: anim_connecting_dots
             - lvgl.widget.hide:
                 id: connecting_overlay
@@ -262,7 +268,7 @@ script:
           else:
             - lambda: |-
                 id(nav_connected) = false;
-                id(nav_idx) = 0;
+                id(nav_idx) = ${nav_home_page} - 1;
             - lvgl.widget.hide:
                 id: navbar
             - lvgl.widget.show:

@@ -62,6 +62,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C, touch-state globals |
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
+| `packages/cover-ui.yaml` | Cover UI — any `cover.*` entity (garage door, blinds, gate), open/stop/close + state + progress, LVGL page |
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
 | `packages/sleep-mode.yaml` | Bedroom sleep mode — touch-to-wake backlight + idle auto-off, exposed to HA as a switch + number |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
@@ -78,6 +79,7 @@ esp32-hass-panel.yaml                ← substitutions + device setup
   ├─ packages/board.yaml             ← hardware peripherals (swappable per board)
   ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
+  ├─ packages/cover-ui.yaml          ← cover LVGL page (garage / blinds / gate)
   └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
 ```
 
@@ -128,12 +130,15 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `thermostat_temp_min` | `16.0` | Minimum settable target temperature |
 | `thermostat_temp_max` | `30.0` | Maximum settable target temperature |
 | `thermostat_temp_step` | `0.5` | Temperature increment per button press |
+| **Cover** | | |
+| `cover_entity_id` | `cover.garage_door` | HA `cover.*` entity (garage door, blinds, gate, …) shown on the cover page |
 | **Navigation** | | |
-| `nav_home_page` | `alarm_page` | LVGL page ID shown on connect and idle return |
-| `nav_page_1` | `alarm_page` | Page at index 1 (set to real page or leave as home) |
-| `nav_page_2` | `alarm_page` | Page at index 2 (unused slots default to home) |
-| `nav_page_3` | `alarm_page` | Page at index 3 (unused slots default to home) |
+| `nav_page_1` | `alarm_page` | LVGL page ID at swipe slot 1 (leftmost) |
+| `nav_page_2` | `alarm_page` | Page at slot 2 (unused slots fall back to `nav_page_1`) |
+| `nav_page_3` | `alarm_page` | Page at slot 3 |
+| `nav_page_4` | `alarm_page` | Page at slot 4 |
 | `nav_page_count` | `1` | Number of active pages in the swipe cycle (1–4) |
+| `nav_home_page` | `"1"` | 1-based index (1…`nav_page_count`) of the landing page. The home page is shown on connect, when sleep mode wakes, and as the idle auto-return target. Must be ≤ `nav_page_count`. |
 | `nav_auto_return_delay` | `30s` | Idle time before auto-returning to home page |
 | **Sleep mode** | | |
 | `sleep_mode_default_state` | `OFF` | Factory-default state of the sleep-mode switch (`OFF` / `ON`). Set to `ON` for bedroom panels so they boot dark. HA-stored state wins on subsequent boots. |
@@ -174,8 +179,34 @@ substitutions:
   friendly_name: Hallway Panel
   alarm_entity_id: alarm_control_panel.home_alarm
   thermostat_entity_id: climate.hallway_thermostat
+  nav_page_1: alarm_page
+  nav_page_2: thermostat_page
   nav_page_count: "2"
-  nav_page_1: thermostat_page
+
+packages:
+  keypad:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: main
+    file: esp32-hass-panel.yaml
+    refresh: 0d
+```
+
+### 2-page panel with cover first, alarm second
+
+Reorder the swipe slots. The landing page is whichever `nav_page_N`
+slot `nav_home_page` points at (default `"1"`, the leftmost).
+
+`panel-garage.yaml`:
+
+```yaml
+substitutions:
+  name: panel-garage
+  friendly_name: Garage Panel
+  alarm_entity_id: alarm_control_panel.home_alarm
+  cover_entity_id: cover.garage_door
+  nav_page_1: cover_page       # landing page (nav_home_page defaults to "1")
+  nav_page_2: alarm_page
+  nav_page_count: "2"
 
 packages:
   keypad:
@@ -190,10 +221,12 @@ packages:
 | Want… | Set… |
 |---|---|
 | 1 page — alarm only | `nav_page_count: "1"` |
-| 2 pages — alarm + thermostat | `nav_page_count: "2"`, `nav_page_1: thermostat_page`, `thermostat_entity_id: ...` |
-| 3 pages — alarm + thermostat + garage (default) | `nav_page_count: "3"`, `nav_page_1: thermostat_page`, `nav_page_2: garage_page`, `thermostat_entity_id: ...`, `garage_entity_id: ...` |
-| Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and (optionally) `sleep_mode_default_timeout: "<seconds>"` |
-| Pin to a release | `ref: v1.9.1` instead of `ref: main` |
+| 2 pages — alarm + thermostat | `nav_page_1: alarm_page`, `nav_page_2: thermostat_page`, `nav_page_count: "2"`, `thermostat_entity_id: …` |
+| 3 pages — alarm + thermostat + cover (default) | `nav_page_count: "3"` (other defaults already match) |
+| Reorder, e.g. cover-first / alarm-second | `nav_page_1: cover_page`, `nav_page_2: alarm_page`, `nav_page_count: "2"`, `cover_entity_id: …` |
+| Keep swipe order but pin home to a different slot | `nav_home_page: "2"` (must be ≤ `nav_page_count`) |
+| Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and optionally `sleep_mode_default_timeout: "<seconds>"` |
+| Pin to a release | `ref: v2.0.0` instead of `ref: main` |
 
 ### secrets.yaml requirements
 
