@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/HomeOps/esphome-hass-panels/compare/v1.9.1...v1.10.0) (2026-05-06)
+
+
+### Features
+
+* **3d:** pressure ridge, plate fillets, counterbore, narrower spines ([#37](https://github.com/HomeOps/esphome-hass-panels/issues/37)) ([853b82e](https://github.com/HomeOps/esphome-hass-panels/commit/853b82e29cb765f9588696a67676247443d65804))
+
 ## [1.9.1](https://github.com/HomeOps/esphome-hass-panels/compare/v1.9.0...v1.9.1) (2026-05-01)
 
 
