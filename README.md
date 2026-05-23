@@ -49,6 +49,13 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **Idle auto-off** — after a configurable period of inactivity, the panel sleeps itself again
 - **HA-exposed controls** — `switch.<device>_sleep_mode` and `number.<device>_sleep_mode_timeout`, both persisted to flash and toggleable per device without re-flashing
 - **Timeout values** — `-1` (default) never auto-sleeps after a wake; `0–5 s` are snapped to `-1` (too short to use); `≥6 s` re-sleeps after that many idle seconds
+- **Programmatic bypass** — other packages (e.g. `energy-ui`'s low-power alert) can flip a `g_sleep_bypass` global via the `sleep_bypass_set` / `sleep_bypass_clear` scripts to forcibly keep the screen on during an alert condition
+
+### Energy monitoring page
+- **Battery state of charge** — color-coded percentage readout + LVGL bar from a HA numeric sensor (green ≥ 60, amber 30–59, red < 30)
+- **Grid status** — `ON GRID` / `OFF GRID` driven by a HA binary sensor, color-coded
+- **Low-power alert** — when a designated HA binary sensor goes on, the panel bypasses sleep mode, force-navigates to `energy_page` (if the page is in the swipe cycle), and flashes the page background red. All three reverse when the sensor clears
+- **Opt-in via nav** — the page is always compiled; register it with `nav_page_N: energy_page` and bump `nav_page_count` to expose it. Sleep bypass + flash fire on alert even when the page isn't in the swipe cycle
 
 ### General
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
@@ -63,6 +70,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
 | `packages/cover-ui.yaml` | Cover UI — any `cover.*` entity (garage door, blinds, gate), open/stop/close + state + progress, LVGL page |
+| `packages/energy-ui.yaml` | Energy UI — battery state of charge + grid status + low-power alert (bypasses sleep, force-navigates, flashes page bg) |
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
 | `packages/sleep-mode.yaml` | Bedroom sleep mode — touch-to-wake backlight + idle auto-off, exposed to HA as a switch + number |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
@@ -80,6 +88,7 @@ esp32-hass-panel.yaml                ← substitutions + device setup
   ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
   ├─ packages/cover-ui.yaml          ← cover LVGL page (garage / blinds / gate)
+  ├─ packages/energy-ui.yaml         ← energy LVGL page (battery / grid / low-power alert)
   └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
 ```
 
@@ -132,6 +141,10 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `thermostat_temp_step` | `0.5` | Temperature increment per button press |
 | **Cover** | | |
 | `cover_entity_id` | `cover.garage_door` | HA `cover.*` entity (garage door, blinds, gate, …) shown on the cover page |
+| **Energy** | | |
+| `energy_battery_entity_id` | `sensor.home_battery_charge` | HA numeric sensor (0-100) for whole-home battery state of charge |
+| `energy_grid_status_entity_id` | `binary_sensor.grid_online` | HA binary sensor: on = on-grid, off = islanded / off-grid |
+| `energy_low_power_entity_id` | `binary_sensor.home_low_power_alert` | HA binary sensor: when on, bypasses sleep mode, force-navigates to `energy_page` (if registered), and flashes the page background |
 | **Navigation** | | |
 | `nav_page_1` | `alarm_page` | LVGL page ID at swipe slot 1 (leftmost) |
 | `nav_page_2` | `alarm_page` | Page at slot 2 (unused slots fall back to `nav_page_1`) |
@@ -223,6 +236,7 @@ packages:
 | 1 page — alarm only | `nav_page_count: "1"` |
 | 2 pages — alarm + thermostat | `nav_page_1: alarm_page`, `nav_page_2: thermostat_page`, `nav_page_count: "2"`, `thermostat_entity_id: …` |
 | 3 pages — alarm + thermostat + cover (default) | `nav_page_count: "3"` (other defaults already match) |
+| 4 pages — add energy monitoring | `nav_page_4: energy_page`, `nav_page_count: "4"`, `energy_battery_entity_id: …`, `energy_grid_status_entity_id: …`, `energy_low_power_entity_id: …` |
 | Reorder, e.g. cover-first / alarm-second | `nav_page_1: cover_page`, `nav_page_2: alarm_page`, `nav_page_count: "2"`, `cover_entity_id: …` |
 | Keep swipe order but pin home to a different slot | `nav_home_page: "2"` (must be ≤ `nav_page_count`) |
 | Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and optionally `sleep_mode_default_timeout: "<seconds>"` |
