@@ -139,37 +139,77 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `sleep_mode_default_state` | `OFF` | Factory-default state of the sleep-mode switch (`OFF` / `ON`). Set to `ON` for bedroom panels so they boot dark. HA-stored state wins on subsequent boots. |
 | `sleep_mode_default_timeout` | `-1` | Factory-default value of the auto-off timeout, in seconds. `-1` = never; values `0–5` snap to `-1`; `>=6` re-sleeps after that many idle seconds. |
 
-Override them on the command line or in a per-device YAML:
+Per-device YAML pulls in `esp32-hass-panel.yaml` as a single [ESPHome git
+package](https://esphome.io/components/packages#git-source) and overrides
+only what's specific to that device.
+
+### 1-page panel (bedroom — alarm only, sleep mode on)
+
+`panel-bedroom.yaml`:
 
 ```yaml
-# home-alarm-keypad-downstairs.yaml
 substitutions:
-  name: home-alarm-keypad-downstairs
-  friendly_name: Home Alarm Keypad Downstairs
-
-<<: !include esp32-hass-panel.yaml
-```
-
-To compose multiple UI panels on a larger screen, add more packages and register the pages:
-
-```yaml
-# home-panel.yaml — alarm + thermostat on a 800x480 display
-substitutions:
-  name: home-panel
-  friendly_name: Home Panel
-  display_width: "800"
-  display_height: "480"
-  display_rotation: "0"
-  # Register thermostat as the second swipe page
-  nav_home_page: alarm_page
-  nav_page_1: thermostat_page
-  nav_page_count: "2"
+  name: panel-bedroom
+  friendly_name: Bedroom Panel
+  alarm_entity_id: alarm_control_panel.home_alarm
+  nav_page_count: "1"
+  sleep_mode_default_state: "ON"
+  sleep_mode_default_timeout: "60"
 
 packages:
-  board: !include packages/board.yaml
-  alarm_ui: !include packages/alarm-keypad-ui.yaml
-  thermostat_ui: !include packages/thermostat-ui.yaml
-  nav: !include packages/nav.yaml
+  keypad:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: main          # or a tag like `v1.9.1` to pin
+    file: esp32-hass-panel.yaml
+    refresh: 0d        # always re-pull on compile
+```
+
+### 2-page panel (alarm + thermostat)
+
+`panel-hallway.yaml`:
+
+```yaml
+substitutions:
+  name: panel-hallway
+  friendly_name: Hallway Panel
+  alarm_entity_id: alarm_control_panel.home_alarm
+  thermostat_entity_id: climate.hallway_thermostat
+  nav_page_count: "2"
+  nav_page_1: thermostat_page
+
+packages:
+  keypad:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: main
+    file: esp32-hass-panel.yaml
+    refresh: 0d
+```
+
+### Substitution cheat sheet
+
+| Want… | Set… |
+|---|---|
+| 1 page — alarm only | `nav_page_count: "1"` |
+| 2 pages — alarm + thermostat | `nav_page_count: "2"`, `nav_page_1: thermostat_page`, `thermostat_entity_id: ...` |
+| 3 pages — alarm + thermostat + garage (default) | `nav_page_count: "3"`, `nav_page_1: thermostat_page`, `nav_page_2: garage_page`, `thermostat_entity_id: ...`, `garage_entity_id: ...` |
+| Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and (optionally) `sleep_mode_default_timeout: "<seconds>"` |
+| Pin to a release | `ref: v1.9.1` instead of `ref: main` |
+
+### secrets.yaml requirements
+
+The per-device YAML's directory must contain a `secrets.yaml`. ESPHome
+resolves every `!secret` reference (including ones inside the
+git-fetched panel YAML) against the *entry-point* config's directory,
+so all of the following keys must be present even though the references
+live in the fetched file:
+
+```yaml
+wifi_ssid: "..."
+wifi_password: "..."
+api_encryption_key: "..."   # generate: esphome generate-api-key
+ota_password: "..."
+ap_ssid: "..."
+ap_password: "..."
 ```
 
 ## secrets.yaml format
