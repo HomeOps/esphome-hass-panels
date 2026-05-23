@@ -1,0 +1,169 @@
+# sleep-mode.yaml — Bedroom sleep mode (backlight + touch-to-wake)
+#
+# When the panel is mounted in a room where someone sleeps, the backlight
+# would otherwise glow all night. This package adds a runtime-toggleable
+# "sleep mode":
+#
+#   switch.<device>_sleep_mode          — enable / disable the feature
+#   number.<device>_sleep_mode_timeout  — seconds of inactivity before the
+#                                         screen sleeps again after a wake
+#
+# Both entities are exposed to Home Assistant (no re-flash needed per device)
+# and persisted to flash so they survive reboots.
+#
+# Behaviour while enabled:
+#   - At boot (and on switch turn-on) the backlight goes off and a black,
+#     click-blocking overlay covers the UI.
+#   - The first touch is consumed: it wakes the backlight, hides the overlay,
+#     and does NOT activate the widget under the finger. This avoids a
+#     sleepy-handed disarm/arm in the dark.
+#   - Subsequent touches behave normally. Every touch restarts the idle
+#     auto-off timer (if configured).
+#
+# Timeout semantics:
+#   -1   → never auto-off (default). Once woken, the screen stays on until
+#          the switch is toggled off (or back on).
+#    0–5 → snapped to -1. Values that small would shut the screen off mid-tap
+#          and aren't useful.
+#   ≥6   → backlight returns to sleep after this many seconds of inactivity.
+#
+# Contract with board.yaml:
+#   board.yaml's touchscreen on_touch/on_release branch on g_screen_awake
+#   and g_swallow_touch so a wake-touch doesn't propagate to nav/swipe.
+
+globals:
+  # True while the backlight is lit and widgets accept touches.
+  - id: g_screen_awake
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  # Set on a wake-touch's touch-down, cleared on its release. While set,
+  # board.yaml skips swipe tracking and nav_touch/nav_release so the
+  # wake gesture can't be interpreted as a swipe.
+  - id: g_swallow_touch
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+switch:
+  - platform: template
+    id: sleep_mode_enable
+    name: Sleep Mode
+    icon: mdi:bed
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    on_turn_on:
+      - script.execute: sleep_mode_sleep
+    on_turn_off:
+      - script.stop: sleep_mode_auto_off
+      - script.execute: sleep_mode_wake
+
+number:
+  - platform: template
+    id: sleep_mode_timeout
+    name: Sleep Mode Timeout
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    mode: box
+    min_value: -1
+    max_value: 3600
+    step: 1
+    restore_value: true
+    initial_value: -1
+    optimistic: true
+    on_value:
+      # Snap "too low" values (0–5s) to -1 so the screen never sleeps
+      # mid-interaction. The set_action assignment re-enters on_value, but
+      # the second pass has x == -1 and falls through to the else branch
+      # — no infinite loop.
+      - if:
+          condition:
+            lambda: 'return x > -1.0f && x < 6.0f;'
+          then:
+            - number.set:
+                id: sleep_mode_timeout
+                value: -1
+          else:
+            # Apply the new timeout to any in-flight idle countdown.
+            - script.execute: sleep_mode_auto_off
+
+script:
+  # Wake: backlight on, overlay off, idle timer (re)armed.
+  - id: sleep_mode_wake
+    mode: restart
+    then:
+      - lambda: 'id(g_screen_awake) = true;'
+      - lvgl.widget.hide:
+          id: sleep_overlay
+      - light.turn_on:
+          id: display_backlight
+          transition_length: 200ms
+      - script.execute: sleep_mode_auto_off
+
+  # Sleep: reset to home page (so wake always lands on the alarm keypad),
+  # show black overlay, fade backlight off.
+  - id: sleep_mode_sleep
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_screen_awake) = false;
+          id(nav_idx) = 0;
+      - script.execute: nav_show_page
+      - lvgl.widget.show:
+          id: sleep_overlay
+      - light.turn_off:
+          id: display_backlight
+          transition_length: 500ms
+
+  # Idle auto-off. Restart-mode → each touch (board.yaml) re-arms it.
+  # Disabled when sleep mode is off, the screen is already asleep, or the
+  # configured timeout is below the 6 s usability floor.
+  - id: sleep_mode_auto_off
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(sleep_mode_enable).state &&
+                     id(g_screen_awake) &&
+                     id(sleep_mode_timeout).state >= 6.0f;
+          then:
+            - delay: !lambda |-
+                return (uint32_t)(id(sleep_mode_timeout).state * 1000);
+            - script.execute: sleep_mode_sleep
+
+# If sleep mode was on before a reboot, RESTORE_DEFAULT_OFF brings the
+# switch back as ON (template switch restores user state). This on_boot
+# ensures the panel actually goes to sleep at startup rather than sitting
+# lit until the next touch. Priority -100: after LVGL init.
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - if:
+          condition:
+            lambda: 'return id(sleep_mode_enable).state;'
+          then:
+            - script.execute: sleep_mode_sleep
+
+# Full-screen black widget on the top layer. Shown when asleep, it both
+# hides any residual LCD content and intercepts LVGL touch routing so
+# widgets below cannot fire. The actual wake action is driven from
+# board.yaml's on_touch — this overlay just blocks click-through.
+lvgl:
+  top_layer:
+    widgets:
+      - obj:
+          id: sleep_overlay
+          x: 0
+          y: 0
+          width: ${display_width}
+          height: ${display_height}
+          bg_color: 0x000000
+          bg_opa: COVER
+          border_width: 0
+          pad_all: 0
+          scrollbar_mode: "off"
+          scrollable: false
+          clickable: true
+          hidden: true

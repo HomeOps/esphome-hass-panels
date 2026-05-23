@@ -44,6 +44,12 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **Idle auto-return** — returns to the home page after a configurable timeout (default 30 s)
 - **Extensible** — supports up to 4 pages via substitutions; unused slots safely no-op
 
+### Sleep mode (for bedrooms)
+- **Touch-to-wake** — when enabled, the backlight stays off and a black overlay blocks click-through. The first touch only wakes the screen; it does not activate the widget under the finger
+- **Idle auto-off** — after a configurable period of inactivity, the panel sleeps itself again
+- **HA-exposed controls** — `switch.<device>_sleep_mode` and `number.<device>_sleep_mode_timeout`, both persisted to flash and toggleable per device without re-flashing
+- **Timeout values** — `-1` (default) never auto-sleeps after a wake; `0–5 s` are snapped to `-1` (too short to use); `≥6 s` re-sleeps after that many idle seconds
+
 ### General
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
@@ -57,6 +63,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
+| `packages/sleep-mode.yaml` | Bedroom sleep mode — touch-to-wake backlight + idle auto-off, exposed to HA as a switch + number |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
 | `3d/cradle.scad` | OpenSCAD source for the 3D-printable wall-mount cradle |

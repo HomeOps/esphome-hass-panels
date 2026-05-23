@@ -62,6 +62,7 @@ packages:
   thermostat_ui: !include packages/thermostat-ui.yaml
   garage_ui: !include packages/garage-door-ui.yaml
   nav: !include packages/nav.yaml
+  sleep_mode: !include packages/sleep-mode.yaml
 
 esphome:
   name: ${name}
