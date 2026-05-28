@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.1.0...v2.1.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* wake backlight on touch when light is turned off ([#45](https://github.com/HomeOps/esphome-hass-panels/issues/45)) ([1cb6630](https://github.com/HomeOps/esphome-hass-panels/commit/1cb663012d079cc4e0991ba8b300795a573c7072))
+
 ## [2.1.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.0.0...v2.1.0) (2026-05-23)
 
 
