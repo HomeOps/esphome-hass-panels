@@ -76,7 +76,7 @@ esphome:
   # release-please on each release — do not edit by hand.
   project:
     name: "HomeOps.esphome-hass-panels"
-    version: "2.1.0" # x-release-please-version
+    version: "2.1.1" # x-release-please-version
 
 # Switched from arduino to esp-idf — required for RGB panel + LVGL
 esp32:
