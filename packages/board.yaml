@@ -126,6 +126,9 @@ globals:
 #                    panel is asleep, the first touch only wakes the backlight
 #                    — it does not propagate to swipe tracking or to nav, so a
 #                    sleepy hand can't drag the wake gesture into a swipe.
+#   The backlight light entity is exposed to HA, so a user can turn it off
+#   from outside this firmware. If that happens, a touch must turn it back
+#   on — otherwise the panel is stuck dark with no recovery path.
 touchscreen:
   - platform: ${touchscreen_platform}
     id: tft_touch
@@ -137,6 +140,14 @@ touchscreen:
           then:
             - lambda: 'id(g_swallow_touch) = true;'
             - script.execute: sleep_mode_wake
+      - if:
+          condition:
+            lambda: 'return !id(g_swallow_touch) && !id(display_backlight).remote_values.is_on();'
+          then:
+            - lambda: 'id(g_swallow_touch) = true;'
+            - light.turn_on:
+                id: display_backlight
+                transition_length: 200ms
       - if:
           condition:
             lambda: 'return !id(g_swallow_touch);'
