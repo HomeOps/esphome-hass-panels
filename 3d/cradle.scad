@@ -95,6 +95,11 @@ cradle_z    = plate_bottom_z + cradle_outer_h/2 + cradle_lift;
 
 // ---------- BUILD ----------
 
+// Print orientation: the model is authored standing up (plate in the X-Z
+// plane, cradle projecting forward in +Y). Rotate +90 deg about X so the
+// plate's flat back face lies on the bed (Z=0) and the cradle rises up in
+// +Z — "wall plate flat on the bed, cradle rising up."
+rotate([90, 0, 0])
 union() {
     // Plate + hollow cradle shell, with all plate-side subtractions.
     // The retention lip is added AFTER this block so the bottom slot
