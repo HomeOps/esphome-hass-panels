@@ -292,6 +292,23 @@ ap_password: "random-string"
 
 ## Home Assistant setup
 
+### Allow the device to perform actions (required)
+
+Every control on the panel — arm/disarm, cover open/close, lock/unlock, and
+the area page's light/switch toggles — issues a Home Assistant **service
+call**. ESPHome devices are **not** permitted to do this by default: HA
+accepts the connection and the panel reads entity state fine, but every
+command is silently dropped until you authorise the device.
+
+After adopting each panel in **Settings → Devices & Services → ESPHome**,
+open its device entry and enable **“Allow the device to perform Home
+Assistant actions”**, then submit (the integration reloads). This is
+per‑device, so every physical panel needs it.
+
+Symptom when it's missing: state displays update correctly, but buttons do
+nothing. The device log shows the command being sent (e.g. `Area lights:
+sending light.turn_off`) while HA's own log records the refusal.
+
 ### Alarm panel
 
 Add a manual alarm panel to your HA `configuration.yaml`:
