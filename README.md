@@ -74,7 +74,8 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 | File | Description |
 |---|---|
-| `esp32-hass-panel.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `esp32-hass-panel.yaml` | Full-bundle entry point — `core` + every UI page wired into the swipe cycle |
+| `packages/core.yaml` | Common scaffolding — board + nav + sleep + connectivity + framework/version; everything **except** the UI pages. Compose with selected UI packages for a slim build |
 | `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C, touch-state globals |
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
@@ -90,18 +91,43 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 ### Architecture
 
-The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
+The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages). `packages/core.yaml` holds everything common (hardware, nav, sleep, connectivity, framework + firmware version); each UI page is a separate package. The full-bundle entry includes them all:
 
 ```
-esp32-hass-panel.yaml                ← substitutions + device setup
-  ├─ packages/board.yaml             ← hardware peripherals (swappable per board)
+esp32-hass-panel.yaml                ← full bundle: nav wiring + all UI pages
+  ├─ packages/core.yaml              ← board + nav + sleep + connectivity + version
+  │    ├─ packages/board.yaml        ← hardware peripherals (swappable per board)
+  │    ├─ packages/nav.yaml          ← swipe nav, connecting overlay, idle return
+  │    └─ packages/sleep-mode.yaml   ← touch-to-wake backlight + idle auto-off
   ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
   ├─ packages/cover-ui.yaml          ← cover LVGL page (garage / blinds / gate)
   ├─ packages/energy-ui.yaml         ← energy LVGL page (battery / grid / low-power alert)
-  ├─ packages/area-ui.yaml           ← area LVGL page (lights / switches / covers / locks + climate)
-  └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
+  └─ packages/area-ui.yaml           ← area LVGL page (lights / switches / covers / locks + climate)
 ```
+
+**Slim builds — only compile the pages you use.** Every UI page you compile costs flash whether or not it's in the swipe cycle, so a device that needs just one page can compose `core` + that page instead of the full bundle:
+
+```yaml
+substitutions:
+  name: panel-den
+  friendly_name: Den Panel
+  nav_page_1: area_page
+  nav_page_count: "1"
+  area_lights_entity_id: light.den_panel_lights
+
+packages:
+  core:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: v2.2.0            # or a later tag
+    file: packages/core.yaml
+  area_ui:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: v2.2.0
+    file: packages/area-ui.yaml
+```
+
+This drops the four unused pages from flash (~140 KB measured). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
 
 Each UI package contributes its own LVGL **page**. The navigation package wires
 swipe gestures, a connecting overlay, and idle auto-return across all registered

@@ -1,122 +1,31 @@
-# ESP32 Home Panel — LVGL touch UI wired to Home Assistant (alarm + thermostat)
-# Board:   Guition ESP32-S3-4848S040
+# ESP32 Home Panel — full bundle: every UI page wired into the swipe cycle.
+#
+# Batteries-included entry point — all five pages are compiled. For a smaller
+# image that omits unused pages, compose packages/core.yaml with only the UI
+# packages you want instead of this file (see packages/core.yaml + README).
+#
+# Board: Guition ESP32-S3-4848S040
 # Sources:
 #   Pin map + display config: https://devices.esphome.io/devices/guition-esp32-s3-4848s040/
 #   Full community config:    https://github.com/esphome/esphome-devices/blob/main/src/docs/devices/Guition-ESP32-S3-4848S040/index.md
 #   Board overview:           https://homeding.github.io/boards/esp32s3/panel-4848S040.htm
 
 substitutions:
-  name: esp32-hass-panel
-  friendly_name: ESP32 Home Panel
-  # Display panel
-  display_platform: "st7701s"
-  display_width: "480"
-  display_height: "480"
-  display_rotation: "270"
-  display_color_order: "RGB"
-  display_invert_colors: "False"
-  display_spi_mode: "MODE3"
-  display_data_rate: "2MHz"
-  display_pclk_frequency: "12MHz"
-  display_pclk_inverted: "False"
-  display_hsync_pulse_width: "8"
-  display_hsync_front_porch: "10"
-  display_hsync_back_porch: "20"
-  display_vsync_pulse_width: "8"
-  display_vsync_front_porch: "10"
-  display_vsync_back_porch: "10"
-  # Display pins
-  display_cs_pin: "39"
-  display_de_pin: "18"
-  display_hsync_pin: "16"
-  display_vsync_pin: "17"
-  display_pclk_pin: "21"
-  # SPI bus (display init)
-  spi_clk_pin: "GPIO48"
-  spi_mosi_pin: "GPIO47"
-  # I2C bus (touch controller)
-  i2c_sda_pin: "GPIO19"
-  i2c_scl_pin: "45"
-  # Touchscreen
-  touchscreen_platform: "gt911"
-  # Backlight
-  backlight_pin: "GPIO38"
-  # Alarm panel entity
-  alarm_entity_id: alarm_control_panel.home_alarm
-  # Thermostat entity
-  thermostat_entity_id: climate.thermostat
-  thermostat_temp_min: "16.0"
-  thermostat_temp_max: "30.0"
-  thermostat_temp_step: "0.5"
-  # Cover entity — any HA `cover.*` (garage door opener, blinds, gate, …)
-  cover_entity_id: cover.garage_door
-  # Navigation — register all pages in the swipe cycle (1-based)
+  # Full-bundle swipe cycle: alarm · thermostat · cover. The energy and area
+  # pages are compiled too — register one in a slot (and bump nav_page_count)
+  # to expose it. All board / entity defaults come from packages/core.yaml
+  # and the individual UI packages; override any of them here or per device.
   nav_page_1: alarm_page
   nav_page_2: thermostat_page
   nav_page_3: cover_page
   nav_page_count: "3"
-  # nav_home_page defaults to "1" in packages/nav.yaml — override here
-  # if a different declared page should be the landing / auto-return target.
+  # nav_home_page defaults to "1" in packages/nav.yaml — override here if a
+  # different declared page should be the landing / auto-return target.
 
 packages:
-  board: !include packages/board.yaml
+  core: !include packages/core.yaml
   alarm_ui: !include packages/alarm-keypad-ui.yaml
   thermostat_ui: !include packages/thermostat-ui.yaml
   cover_ui: !include packages/cover-ui.yaml
   energy_ui: !include packages/energy-ui.yaml
   area_ui: !include packages/area-ui.yaml
-  nav: !include packages/nav.yaml
-  sleep_mode: !include packages/sleep-mode.yaml
-
-esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  # project.version is the single source of truth for the firmware
-  # version shown on the connecting overlay (via ESPHOME_PROJECT_VERSION)
-  # and in the HA Dashboard / OTA metadata. Bumped automatically by
-  # release-please on each release — do not edit by hand.
-  project:
-    name: "HomeOps.esphome-hass-panels"
-    version: "2.2.0" # x-release-please-version
-
-# Switched from arduino to esp-idf — required for RGB panel + LVGL
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
-  framework:
-    type: esp-idf
-
-# 8MB octal PSRAM required for LVGL frame buffer
-psram:
-  mode: octal
-  speed: 80MHz
-
-logger:
-
-api:
-  encryption:
-    key: !secret api_encryption_key
-
-ota:
-  - platform: esphome
-    password: !secret ota_password
-    on_begin:
-      # Prevent display flickering during OTA flash
-      - light.turn_off:
-          id: display_backlight
-          transition_length: 0s
-      - lambda: "id(display_backlight).loop();"
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  ap:
-    ssid: !secret ap_ssid
-    password: !secret ap_password
-
-captive_portal:
-
-# LVGL top-level settings — rotation is board-specific;
-# pages are contributed by UI packages (alarm_ui, thermostat_ui, etc.)
-lvgl:
-  rotation: ${display_rotation}

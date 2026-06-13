@@ -1,13 +1,12 @@
-# CI fixture — bedroom alarm panel.
+# CI fixture — bedroom alarm panel (slim composition).
 #
-# Slim per-device config: one swipeable page (alarm keypad only — no
-# thermostat, no garage), sleep mode enabled by default on first boot
-# with a 60s auto-off timeout. Mirrors what a real bedroom-mounted
-# panel would look like.
+# Slim per-device config: core scaffolding + ONLY the alarm UI (no
+# thermostat, cover, energy or area pages compiled), sleep mode enabled by
+# default with a 60s auto-off timeout. Mirrors a real bedroom-mounted panel.
 #
-# All board hardware substitutions come from packages/board.yaml's
-# defaults; `alarm_entity_id` defaults from packages/alarm-keypad-ui.yaml.
-# Only the substitutions specific to this device's role are listed.
+# nav_page_1 defaults to alarm_page (nav.yaml), so only nav_page_count is set.
+# All board hardware + connectivity come from packages/core.yaml; the alarm
+# entity defaults from packages/alarm-keypad-ui.yaml.
 #
 # Compile-only — never flashed to a real device.
 
@@ -19,50 +18,5 @@ substitutions:
   sleep_mode_default_timeout: "60"
 
 packages:
-  board: !include ../packages/board.yaml
+  core: !include ../packages/core.yaml
   alarm_ui: !include ../packages/alarm-keypad-ui.yaml
-  nav: !include ../packages/nav.yaml
-  sleep_mode: !include ../packages/sleep-mode.yaml
-
-esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  project:
-    name: "HomeOps.esphome-hass-panels"
-    version: "1.9.1" # x-release-please-version
-
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
-  framework:
-    type: esp-idf
-
-psram:
-  mode: octal
-  speed: 80MHz
-
-logger:
-
-# No encryption — test secrets fixture has no api_encryption_key.
-api:
-
-ota:
-  - platform: esphome
-    password: !secret ota_password
-    on_begin:
-      - light.turn_off:
-          id: display_backlight
-          transition_length: 0s
-      - lambda: "id(display_backlight).loop();"
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  ap:
-    ssid: !secret ap_ssid
-    password: !secret ap_password
-
-captive_portal:
-
-lvgl:
-  rotation: ${display_rotation}

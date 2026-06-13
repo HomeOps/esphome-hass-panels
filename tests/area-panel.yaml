@@ -1,13 +1,10 @@
-# CI fixture — single-page Area panel.
+# CI fixture — single-page Area panel (slim composition).
 #
-# Slim per-device config: one swipeable page (the area group dashboard —
-# no alarm, thermostat or garage). Registers area_page in nav slot 1 so CI
-# actually wires the strcmp("${nav_page_N}", "area_page") routing in
-# area-ui.yaml — without a registered slot the page compiles but every
-# strcmp resolves false at YAML-merge time and the navbar routing is dead.
-#
-# All board hardware substitutions come from packages/board.yaml's
-# defaults; the area_* entity ids default from packages/area-ui.yaml.
+# Demonstrates the slim build model: core scaffolding + ONLY the area UI, so
+# none of the other pages are compiled. Registers area_page in nav slot 1 so
+# CI exercises the strcmp("${nav_page_N}", "area_page") routing in
+# area-ui.yaml, and configures every kind so each card / lambda / the popup
+# is code-generated and type-checked.
 #
 # Compile-only — never flashed to a real device.
 
@@ -15,8 +12,8 @@ substitutions:
   name: test-area-panel
   friendly_name: Test Area Panel
   # Configure every optional kind (incl. locks) so CI exercises each card's
-  # subscription, the boot visibility pass, and the lock toggle branch —
-  # not just the mandatory lights card.
+  # subscription, the boot visibility pass, the lock toggle branch, and the
+  # brightness/colour popup.
   area_name: Test Area
   area_lights_entity_id: light.test_area
   area_switches_entity_id: switch.test_area
@@ -24,62 +21,14 @@ substitutions:
   area_locks_entity_id: lock.test_area
   area_temp_entity_id: sensor.test_area_temperature
   area_humidity_entity_id: sensor.test_area_humidity
+  # area_page in slot 1; unused slots must also resolve to a compiled page,
+  # so point them at area_page too (their alarm_page default isn't built here).
   nav_page_1: area_page
-  # Unused slots must point at a page that exists in THIS config. nav.yaml's
-  # nav_show_page references nav_page_2..4, whose defaults (alarm_page) aren't
-  # compiled here — point them all at area_page so every slot resolves.
   nav_page_2: area_page
   nav_page_3: area_page
   nav_page_4: area_page
   nav_page_count: "1"
 
 packages:
-  board: !include ../packages/board.yaml
+  core: !include ../packages/core.yaml
   area_ui: !include ../packages/area-ui.yaml
-  nav: !include ../packages/nav.yaml
-  # board.yaml's touch handler references sleep-mode globals/scripts
-  # (g_swallow_touch, sleep_mode_wake, …), so this package is required.
-  sleep_mode: !include ../packages/sleep-mode.yaml
-
-esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  project:
-    name: "HomeOps.esphome-hass-panels"
-    version: "2.1.1" # x-release-please-version
-
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
-  framework:
-    type: esp-idf
-
-psram:
-  mode: octal
-  speed: 80MHz
-
-logger:
-
-# No encryption — test secrets fixture has no api_encryption_key.
-api:
-
-ota:
-  - platform: esphome
-    password: !secret ota_password
-    on_begin:
-      - light.turn_off:
-          id: display_backlight
-          transition_length: 0s
-      - lambda: "id(display_backlight).loop();"
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  ap:
-    ssid: !secret ap_ssid
-    password: !secret ap_password
-
-captive_portal:
-
-lvgl:
-  rotation: ${display_rotation}

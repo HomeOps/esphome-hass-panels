@@ -50,8 +50,10 @@ jobs:
         run: cp tests/secrets.yaml secrets.yaml
 
       - name: Disable API encryption for CI
-        # No valid keys in test fixtures — strip the encryption block
-        run: sed -i '/^  encryption:/,/^    key:/d' esp32-hass-panel.yaml
+        # No valid keys in test fixtures — strip the encryption block. The
+        # api: block now lives in packages/core.yaml (included by the full
+        # bundle and every slim fixture), so strip it there once.
+        run: sed -i '/^  encryption:/,/^    key:/d' packages/core.yaml
 
       # All compile steps use tests/compile.py, which mutes ESPHome's
       # unsuppressable GPIO19/GPIO20 USB-Serial-JTAG warning (board-fixed
@@ -71,16 +73,16 @@ jobs:
               exit 1
           fi
 
-      - name: Compile test fixture (sleep-mode enabled, 30s timeout)
-        # Exercises non-default sleep_mode_default_state / _timeout
-        # substitutions in packages/sleep-mode.yaml against the full panel.
+      - name: Compile everything fixture (all pages, all entities)
+        # Maximal build — wraps the full bundle with every entity configured,
+        # all four nav slots filled, and non-default sleep-mode substitutions.
         shell: bash
         run: |
           set -o pipefail
-          python tests/compile.py compile tests/esp32-hass-panel.yaml 2>&1 \
-              | tee sleep-override-build.log
-          if grep -E '^WARNING ' sleep-override-build.log; then
-              echo "::error::Unexpected warning(s) in sleep-override build (above)"
+          python tests/compile.py compile tests/full-panel.yaml 2>&1 \
+              | tee full-build.log
+          if grep -E '^WARNING ' full-build.log; then
+              echo "::error::Unexpected warning(s) in full-panel build (above)"
               exit 1
           fi
 
