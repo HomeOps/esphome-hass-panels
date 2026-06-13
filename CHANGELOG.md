@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.1.1...v2.2.0) (2026-06-13)
+
+
+### Features
+
+* add Area page kind for whole-area control ([#49](https://github.com/HomeOps/esphome-hass-panels/issues/49)) ([5fe1104](https://github.com/HomeOps/esphome-hass-panels/commit/5fe110441c8f89862fcd99bef30209ec38eb3938))
+
 ## [2.1.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.1.0...v2.1.1) (2026-05-28)
 
 
