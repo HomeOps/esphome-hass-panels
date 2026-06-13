@@ -64,6 +64,7 @@ packages:
   thermostat_ui: !include packages/thermostat-ui.yaml
   cover_ui: !include packages/cover-ui.yaml
   energy_ui: !include packages/energy-ui.yaml
+  area_ui: !include packages/area-ui.yaml
   nav: !include packages/nav.yaml
   sleep_mode: !include packages/sleep-mode.yaml
 

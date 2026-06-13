@@ -97,3 +97,26 @@ jobs:
               echo "::error::Unexpected warning(s) in bedroom-alarm-panel build (above)"
               exit 1
           fi
+
+      - name: Compile area panel (group dashboard routing test)
+        # Slim single-page (nav_page_count: 1) config that registers
+        # area_page in nav slot 1, exercising the strcmp area_page routing
+        # in packages/area-ui.yaml. Board / area entity defaults come from
+        # the packages.
+        #
+        # IMPORTANT: this is a full *compile*, not `esphome config`. The
+        # fixture configures every kind (lights/switches/covers/locks/temp/
+        # humidity) so each on_value lambda is code-generated and type-
+        # checked by the C++ compiler. `esphome config` only validates the
+        # schema and will NOT catch lambda errors (e.g. a text: lambda
+        # returning const char* instead of std::string, or a text_color:
+        # lambda returning int instead of lv_color_t) — only this step does.
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile tests/area-panel.yaml 2>&1 \
+              | tee area-build.log
+          if grep -E '^WARNING ' area-build.log; then
+              echo "::error::Unexpected warning(s) in area-panel build (above)"
+              exit 1
+          fi
