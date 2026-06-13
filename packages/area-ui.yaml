@@ -68,6 +68,18 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Light capabilities, parsed from the group's supported_color_modes. Gate
+  # which controls the popup shows: dimmable → brightness slider, color →
+  # colour swatches. Both false (onoff-only light) → tapping the card is a
+  # no-op (the on/off button still works).
+  - id: g_area_lights_dimmable
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_area_lights_color
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 sensor:
   - platform: homeassistant
@@ -94,6 +106,21 @@ sensor:
           text: !lambda return str_sprintf("%.0f%%", x);
       - script.execute: area_refresh_nav
 
+  # Group brightness (0-255) → drives the popup slider position + % label.
+  # Programmatic updates only fire the slider's on_value (live %), never its
+  # on_release, so syncing from HA can't loop back into a service call.
+  - platform: homeassistant
+    id: area_lights_brightness
+    entity_id: ${area_lights_entity_id}
+    attribute: brightness
+    on_value:
+      - lvgl.slider.update:
+          id: slider_area_brightness
+          value: !lambda 'return (int) roundf(x / 255.0f * 100.0f);'
+      - lvgl.label.update:
+          id: lbl_area_brightness_pct
+          text: !lambda 'return str_sprintf("%d%%", (int) roundf(x / 255.0f * 100.0f));'
+
 text_sensor:
   # Lights group state — drives the Lights toggle label/colour. Also the
   # page's "first HA state" signal that flips nav.yaml's Permissions step.
@@ -111,6 +138,33 @@ text_sensor:
           id: lbl_area_lights_state
           text: !lambda 'return std::string(x == "on" ? "ON" : "OFF");'
           text_color: !lambda 'return lv_color_hex(x == "on" ? 0x66dd66 : 0x888888);'
+      # Keep the popup's on/off button in sync with the card's.
+      - lvgl.label.update:
+          id: lbl_popup_lights_state
+          text: !lambda 'return std::string(x == "on" ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(x == "on" ? 0x66dd66 : 0x888888);'
+
+  # Light capabilities — supported_color_modes is a list like "['brightness']"
+  # or "['color_temp', 'hs']". Substring-match the modes that imply brightness
+  # / colour, store the result, and (re)apply the popup section visibility.
+  - platform: homeassistant
+    id: area_lights_color_modes
+    entity_id: ${area_lights_entity_id}
+    attribute: supported_color_modes
+    on_value:
+      - lambda: |-
+          std::string m = x;
+          id(g_area_lights_color) =
+              m.find("hs")  != std::string::npos ||
+              m.find("rgb") != std::string::npos ||
+              m.find("xy")  != std::string::npos;
+          // Any mode other than plain on/off carries a brightness channel.
+          id(g_area_lights_dimmable) =
+              id(g_area_lights_color) ||
+              m.find("brightness") != std::string::npos ||
+              m.find("color_temp") != std::string::npos ||
+              m.find("white")      != std::string::npos;
+      - script.execute: area_light_popup_apply_caps
 
   - platform: homeassistant
     id: area_switches_state
@@ -296,6 +350,59 @@ script:
                 data:
                   entity_id: ${area_locks_entity_id}
 
+  # ── Lights popup (brightness + colour) ──────────────────────────────
+  # Show/hide the popup's brightness and colour sections from the parsed
+  # capabilities. Called when capabilities arrive and on every open, so a
+  # late supported_color_modes update still lands correctly.
+  - id: area_light_popup_apply_caps
+    then:
+      - if:
+          condition: {lambda: 'return id(g_area_lights_dimmable);'}
+          then: [{lvgl.widget.show: grp_popup_brightness}]
+          else: [{lvgl.widget.hide: grp_popup_brightness}]
+      - if:
+          condition: {lambda: 'return id(g_area_lights_color);'}
+          then: [{lvgl.widget.show: grp_popup_color}]
+          else: [{lvgl.widget.hide: grp_popup_color}]
+
+  # Open only when there is something to adjust (dimmable or colour); an
+  # onoff-only light has no popup — the card's on/off button is enough.
+  - id: area_light_popup_open
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_area_lights_dimmable) || id(g_area_lights_color);'
+          then:
+            - script.execute: area_light_popup_apply_caps
+            - lvgl.widget.show: area_light_popup
+
+  - id: area_light_popup_close
+    then:
+      - lvgl.widget.hide: area_light_popup
+
+  # Send an RGB colour. HA can't take a list through plain `data:` (values
+  # arrive as strings), so render it as a `data_template` — HA parses the
+  # rendered "[r, g, b]" back into a real list (native-type templating).
+  - id: area_set_color
+    parameters:
+      r: int
+      g: int
+      b: int
+    then:
+      - logger.log:
+          format: "Area lights: sending light.turn_on rgb_color [%d, %d, %d]"
+          args: [r, g, b]
+      - homeassistant.service:
+          service: light.turn_on
+          data:
+            entity_id: ${area_lights_entity_id}
+          data_template:
+            rgb_color: "[{{ r }}, {{ g }}, {{ b }}]"
+          variables:
+            r: !lambda 'return r;'
+            g: !lambda 'return g;'
+            b: !lambda 'return b;'
+
 # Apply card visibility once LVGL is up (priority -100, like nav/sleep-mode).
 esphome:
   on_boot:
@@ -425,6 +532,11 @@ lvgl:
                               text_color: 0xffffff
 
               # ── Lights group (mandatory) ──────────────────────────
+              # The card body is clickable: tapping anywhere except the
+              # on/off button opens the brightness/colour popup. The button
+              # is a clickable child, so it captures its own taps (LVGL hit-
+              # testing) and never opens the popup; taps on the icon/label/
+              # empty area fall through to the card's on_click.
               - obj:
                   id: card_area_lights
                   width: 440
@@ -438,6 +550,9 @@ lvgl:
                   pad_bottom: 0
                   scrollbar_mode: "off"
                   scrollable: false
+                  clickable: true
+                  on_click:
+                    - script.execute: area_light_popup_open
                   layout:
                     type: FLEX
                     flex_flow: ROW
@@ -627,3 +742,259 @@ lvgl:
                               text: "--"
                               text_font: montserrat_18
                               text_color: 0x888888
+
+        # ── Lights popup: on/off + brightness + colour ────────────────
+        # Sibling of area_page_root (NOT inside the FLEX column), so it's a
+        # free-positioned overlay. Hidden until the Lights card is tapped.
+        # The full-screen backdrop is clickable → tap outside the card to
+        # dismiss. Brightness/colour sections are shown per capability.
+        - obj:
+            id: area_light_popup
+            x: 0
+            y: 0
+            width: ${display_width}
+            height: ${display_height}
+            bg_color: 0x000000
+            bg_opa: 70%
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "off"
+            scrollable: false
+            clickable: true
+            hidden: true
+            on_click:
+              - script.execute: area_light_popup_close
+            widgets:
+              # Centred control card. clickable:true makes it a tap sink so
+              # taps inside the card don't fall through to the backdrop and
+              # close the popup.
+              - obj:
+                  id: area_light_popup_card
+                  align: CENTER
+                  y: 18
+                  width: 400
+                  height: SIZE_CONTENT
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 16
+                  pad_all: 16
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  clickable: true
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    flex_align_main: START
+                    flex_align_cross: CENTER
+                    pad_row: 14
+                  widgets:
+                    - label:
+                        text: "${area_name} Lights"
+                        text_font: montserrat_22
+                        text_color: 0xffffff
+
+                    # On/off row (always shown)
+                    - obj:
+                        width: 360
+                        height: 48
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        layout:
+                          type: FLEX
+                          flex_flow: ROW
+                          flex_align_main: SPACE_BETWEEN
+                          flex_align_cross: CENTER
+                        widgets:
+                          - label:
+                              text: "Power"
+                              text_font: montserrat_18
+                              text_color: 0xcccccc
+                          - button:
+                              width: 120
+                              height: 48
+                              bg_color: 0x0f3460
+                              on_press:
+                                - script.execute: area_lights_toggle
+                              widgets:
+                                - label:
+                                    id: lbl_popup_lights_state
+                                    align: CENTER
+                                    text: "--"
+                                    text_font: montserrat_22
+                                    text_color: 0x888888
+
+                    # Brightness section (shown when dimmable)
+                    - obj:
+                        id: grp_popup_brightness
+                        width: 360
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        hidden: true
+                        layout:
+                          type: FLEX
+                          flex_flow: COLUMN
+                          flex_align_main: START
+                          flex_align_cross: START
+                          pad_row: 6
+                        widgets:
+                          - obj:
+                              width: 360
+                              height: 22
+                              bg_opa: TRANSP
+                              border_width: 0
+                              pad_all: 0
+                              scrollbar_mode: "off"
+                              scrollable: false
+                              layout:
+                                type: FLEX
+                                flex_flow: ROW
+                                flex_align_main: SPACE_BETWEEN
+                                flex_align_cross: CENTER
+                              widgets:
+                                - label:
+                                    text: "Brightness"
+                                    text_font: montserrat_18
+                                    text_color: 0xcccccc
+                                - label:
+                                    id: lbl_area_brightness_pct
+                                    text: "--%"
+                                    text_font: montserrat_18
+                                    text_color: 0xffffff
+                          - slider:
+                              id: slider_area_brightness
+                              width: 360
+                              height: 18
+                              min_value: 0
+                              max_value: 100
+                              value: 0
+                              on_value:
+                                - lvgl.label.update:
+                                    id: lbl_area_brightness_pct
+                                    text: !lambda 'return str_sprintf("%d%%", (int) x);'
+                              on_release:
+                                - logger.log: "Area lights: sending light.turn_on brightness_pct"
+                                - homeassistant.service:
+                                    service: light.turn_on
+                                    data:
+                                      entity_id: ${area_lights_entity_id}
+                                    data_template:
+                                      brightness_pct: "{{ p }}"
+                                    variables:
+                                      p: !lambda 'return (int) lv_slider_get_value(id(slider_area_brightness));'
+
+                    # Colour swatches section (shown when colour-capable)
+                    - obj:
+                        id: grp_popup_color
+                        width: 360
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        hidden: true
+                        layout:
+                          type: FLEX
+                          flex_flow: COLUMN
+                          flex_align_main: START
+                          flex_align_cross: START
+                          pad_row: 6
+                        widgets:
+                          - label:
+                              text: "Color"
+                              text_font: montserrat_18
+                              text_color: 0xcccccc
+                          - obj:
+                              width: 360
+                              height: SIZE_CONTENT
+                              bg_opa: TRANSP
+                              border_width: 0
+                              pad_all: 0
+                              scrollbar_mode: "off"
+                              scrollable: false
+                              layout:
+                                type: FLEX
+                                flex_flow: ROW_WRAP
+                                flex_align_main: SPACE_BETWEEN
+                                flex_align_cross: CENTER
+                                pad_row: 8
+                                pad_column: 8
+                              widgets:
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0xe53935
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 255, g: 0, b: 0}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0xfb8c00
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 255, g: 140, b: 0}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0xfdd835
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 255, g: 220, b: 0}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0x43a047
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 0, g: 200, b: 0}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0x00acc1
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 0, g: 200, b: 200}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0x1e88e5
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 30, g: 120, b: 255}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0x8e24aa
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 160, g: 30, b: 220}
+                                - button:
+                                    width: 80
+                                    height: 40
+                                    bg_color: 0xffffff
+                                    radius: 8
+                                    on_press:
+                                      - script.execute: {id: area_set_color, r: 255, g: 255, b: 255}
+
+                    # Close
+                    - button:
+                        width: 360
+                        height: 48
+                        bg_color: 0x0f3460
+                        on_press:
+                          - script.execute: area_light_popup_close
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "Done"
+                              text_font: montserrat_22
+                              text_color: 0xffffff
