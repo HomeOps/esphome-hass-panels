@@ -208,22 +208,53 @@ script:
 
   # Group actions — call the service on the configured entity; HA fans it
   # out to every member of the group (or area / single device).
+  #
+  # Each script logs at the moment of the press (before the service call) so
+  # the device log distinguishes "button never fired" (no log) from "command
+  # sent but HA dropped it" (log present, but nothing happens in HA — check
+  # the per-device "Allow the device to perform Home Assistant actions"
+  # setting and HA's own log). Lights/switches resolve on/off explicitly from
+  # the current group state rather than using `toggle`, which is ambiguous
+  # on a group whose members disagree.
   - id: area_lights_toggle
     then:
-      - homeassistant.service:
-          service: light.toggle
-          data:
-            entity_id: ${area_lights_entity_id}
+      - if:
+          condition:
+            lambda: 'return id(area_lights_state).state == "on";'
+          then:
+            - logger.log: "Area lights: sending light.turn_off"
+            - homeassistant.service:
+                service: light.turn_off
+                data:
+                  entity_id: ${area_lights_entity_id}
+          else:
+            - logger.log: "Area lights: sending light.turn_on"
+            - homeassistant.service:
+                service: light.turn_on
+                data:
+                  entity_id: ${area_lights_entity_id}
 
   - id: area_switches_toggle
     then:
-      - homeassistant.service:
-          service: switch.toggle
-          data:
-            entity_id: ${area_switches_entity_id}
+      - if:
+          condition:
+            lambda: 'return id(area_switches_state).state == "on";'
+          then:
+            - logger.log: "Area switches: sending switch.turn_off"
+            - homeassistant.service:
+                service: switch.turn_off
+                data:
+                  entity_id: ${area_switches_entity_id}
+          else:
+            - logger.log: "Area switches: sending switch.turn_on"
+            - homeassistant.service:
+                service: switch.turn_on
+                data:
+                  entity_id: ${area_switches_entity_id}
 
   - id: area_covers_open
     then:
+      - logger.log: "Area covers: sending cover.open_cover"
       - homeassistant.service:
           service: cover.open_cover
           data:
@@ -231,6 +262,7 @@ script:
 
   - id: area_covers_stop
     then:
+      - logger.log: "Area covers: sending cover.stop_cover"
       - homeassistant.service:
           service: cover.stop_cover
           data:
@@ -238,6 +270,7 @@ script:
 
   - id: area_covers_close
     then:
+      - logger.log: "Area covers: sending cover.close_cover"
       - homeassistant.service:
           service: cover.close_cover
           data:
@@ -251,11 +284,13 @@ script:
           condition:
             lambda: 'return id(area_locks_state).state == "locked";'
           then:
+            - logger.log: "Area locks: sending lock.unlock"
             - homeassistant.service:
                 service: lock.unlock
                 data:
                   entity_id: ${area_locks_entity_id}
           else:
+            - logger.log: "Area locks: sending lock.lock"
             - homeassistant.service:
                 service: lock.lock
                 data:
