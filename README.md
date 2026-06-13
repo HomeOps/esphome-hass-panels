@@ -57,6 +57,14 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 - **Low-power alert** — when a designated HA binary sensor goes on, the panel bypasses sleep mode, force-navigates to `energy_page` (if the page is in the swipe cycle), and flashes the page background red. All three reverse when the sensor clears
 - **Opt-in via nav** — the page is always compiled; register it with `nav_page_N: energy_page` and bump `nav_page_count` to expose it. Sleep bypass + flash fire on alert even when the page isn't in the swipe cycle
 
+### Area page
+- **One control per kind** — a single page that controls a whole Home Assistant *area* by acting on one entity per device kind: lights, switches, covers, and locks. Toggling fans the command out to every member in HA; the entity's state drives each toggle
+- **Group or single device** — each kind's entity can be a HA group (Settings → Devices & Services → Helpers → Group → Light/Switch/Cover/Lock) *or* a single device entity — both behave identically
+- **Lights mandatory, the rest optional** — only the lights kind must be set. Any kind left at its `<domain>.none` sentinel default is hidden, and the remaining cards reflow up the column (FLEX layout — no gaps)
+- **Climate readout** — optional temperature + humidity shown at the top (bind a single sensor, or a `min_max`/`group` sensor that averages the area's sensors); each half hides independently when unset
+- **Groups, not enumeration** — ESPHome binds entity IDs at compile time and can't enumerate an area, so each kind binds one entity. Every action can instead target an area directly by swapping `entity_id:` for `area_id:` in the package's `homeassistant.service` calls
+- **Opt-in via nav** — always compiled; register it with `nav_page_N: area_page` and bump `nav_page_count` to expose it
+
 ### General
 - **OTA updates** — backlight fades out during flash to avoid visual glitches
 - **Fallback AP** — captive portal on first boot / wifi loss
@@ -71,6 +79,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
 | `packages/cover-ui.yaml` | Cover UI — any `cover.*` entity (garage door, blinds, gate), open/stop/close + state + progress, LVGL page |
 | `packages/energy-ui.yaml` | Energy UI — battery state of charge + grid status + low-power alert (bypasses sleep, force-navigates, flashes page bg) |
+| `packages/area-ui.yaml` | Area UI — whole-area control via one entity per kind (lights / switches / covers / locks) + temp/humidity readout; optional kinds hide when unset, LVGL page |
 | `packages/nav.yaml` | Navigation orchestrator — swipe cycling, connecting overlay, idle auto-return |
 | `packages/sleep-mode.yaml` | Bedroom sleep mode — touch-to-wake backlight + idle auto-off, exposed to HA as a switch + number |
 | `tests/secrets.yaml` | Dummy secrets for CI config validation |
@@ -89,6 +98,7 @@ esp32-hass-panel.yaml                ← substitutions + device setup
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
   ├─ packages/cover-ui.yaml          ← cover LVGL page (garage / blinds / gate)
   ├─ packages/energy-ui.yaml         ← energy LVGL page (battery / grid / low-power alert)
+  ├─ packages/area-ui.yaml           ← area LVGL page (lights / switches / covers / locks + climate)
   └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
 ```
 
@@ -145,6 +155,14 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `energy_battery_entity_id` | `sensor.home_battery_charge` | HA numeric sensor (0-100) for whole-home battery state of charge |
 | `energy_grid_status_entity_id` | `binary_sensor.grid_online` | HA binary sensor: on = on-grid, off = islanded / off-grid |
 | `energy_low_power_entity_id` | `binary_sensor.home_low_power_alert` | HA binary sensor: when on, bypasses sleep mode, force-navigates to `energy_page` (if registered), and flashes the page background |
+| **Area** | | |
+| `area_name` | `Living Room` | Friendly label shown at the top of the area page and in the navbar |
+| `area_lights_entity_id` | `light.living_room` | **Mandatory.** HA light group or single light entity — toggling it controls every member; its state drives the Lights toggle |
+| `area_switches_entity_id` | `switch.none` | *Optional.* HA switch group or single switch. Left at `switch.none` → card hidden |
+| `area_covers_entity_id` | `cover.none` | *Optional.* HA cover group or single cover (open/stop/close). Left at `cover.none` → card hidden |
+| `area_locks_entity_id` | `lock.none` | *Optional.* HA lock group or single lock (lock/unlock). Left at `lock.none` → card hidden |
+| `area_temp_entity_id` | `sensor.none` | *Optional.* HA temperature sensor (single, or an averaging `min_max`/`group` sensor). Left at `sensor.none` → hidden |
+| `area_humidity_entity_id` | `sensor.none` | *Optional.* HA humidity sensor. Left at `sensor.none` → hidden |
 | **Navigation** | | |
 | `nav_page_1` | `alarm_page` | LVGL page ID at swipe slot 1 (leftmost) |
 | `nav_page_2` | `alarm_page` | Page at slot 2 (unused slots fall back to `nav_page_1`) |
@@ -237,6 +255,8 @@ packages:
 | 2 pages — alarm + thermostat | `nav_page_1: alarm_page`, `nav_page_2: thermostat_page`, `nav_page_count: "2"`, `thermostat_entity_id: …` |
 | 3 pages — alarm + thermostat + cover (default) | `nav_page_count: "3"` (other defaults already match) |
 | 4 pages — add energy monitoring | `nav_page_4: energy_page`, `nav_page_count: "4"`, `energy_battery_entity_id: …`, `energy_grid_status_entity_id: …`, `energy_low_power_entity_id: …` |
+| Add an area page (lights only — the rest hide) | `nav_page_N: area_page`, bump `nav_page_count`, `area_name: …`, `area_lights_entity_id: …` |
+| Area page with more kinds | also set any of `area_switches_entity_id`, `area_covers_entity_id`, `area_locks_entity_id`, `area_temp_entity_id`, `area_humidity_entity_id` (group or single device); unset ones stay hidden |
 | Reorder, e.g. cover-first / alarm-second | `nav_page_1: cover_page`, `nav_page_2: alarm_page`, `nav_page_count: "2"`, `cover_entity_id: …` |
 | Keep swipe order but pin home to a different slot | `nav_home_page: "2"` (must be ≤ `nav_page_count`) |
 | Bedroom sleep behaviour | `sleep_mode_default_state: "ON"` and optionally `sleep_mode_default_timeout: "<seconds>"` |

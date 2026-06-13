@@ -1,0 +1,594 @@
+# Area UI — one LVGL page that controls a whole Home Assistant *area* by
+# acting on a single entity per device kind.
+#
+# ESPHome's `homeassistant` platform binds to explicit entity_ids at compile
+# time — it can't enumerate an area's members. So instead of one row per
+# entity, each kind binds ONE entity and lets Home Assistant fan the command
+# out. That entity can be either:
+#   • a group (Settings → Devices & Services → Helpers → Group →
+#     Light/Switch/Cover/Lock) — toggling it acts on every member, and its
+#     state is the aggregate ("on" if ANY member is on); or
+#   • a single device entity (e.g. `light.kitchen_ceiling`) — works exactly
+#     the same, it just happens to have one member.
+#
+# Kinds:
+#   light.<…>    — Lights   (MANDATORY — always shown)
+#   switch.<…>   — Switches (optional)
+#   cover.<…>    — Covers   (optional, open/stop/close)
+#   lock.<…>     — Locks    (optional, lock/unlock)
+#   sensor.<…>   — Temperature + Humidity readouts (optional)
+#
+# Optional kinds are HIDDEN unless configured. "Not configured" = the
+# substitution is left at its sentinel default (`<domain>.none`); the card
+# then collapses out of the FLEX column so the remaining cards reflow up.
+# To hide a kind you previously set, point it back at `<domain>.none`.
+#
+# Alternative to groups: every action can instead target an area directly by
+# replacing `entity_id: ${…}` with `area_id: <your_area_id>` in the
+# homeassistant.service calls below — HA resolves the area to its members.
+# A group entity is used by default because it also exposes the aggregate
+# state needed to render each toggle, which a bare area_id cannot.
+#
+# Layout (480×480 display, nav_bar_height=60): a vertical FLEX column below
+# the navbar — area name, then the climate row and each configured card,
+# top-aligned and reflowing as sections are shown/hidden at boot.
+#
+# Navbar contract (nav.yaml):
+#   Writes "<Area>  <temp>° <hum>%" to any nav slot mapped to area_page,
+#   then calls nav_refresh_status (climate parts omitted when unset).
+
+substitutions:
+  # Friendly label shown at the top of the page and in the navbar.
+  area_name: "Living Room"
+  # Lights — MANDATORY. A real light group or single light entity.
+  area_lights_entity_id: light.living_room
+  # Optional kinds — leave at the `<domain>.none` sentinel to hide the card.
+  area_switches_entity_id: switch.none
+  area_covers_entity_id: cover.none
+  area_locks_entity_id: lock.none
+  area_temp_entity_id: sensor.none
+  area_humidity_entity_id: sensor.none
+
+globals:
+  # Latest climate readouts + "have we seen a value yet" flags, so the
+  # navbar status line can omit a reading that never arrived.
+  - id: g_area_temp
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: g_area_hum
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: g_area_temp_known
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_area_hum_known
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+sensor:
+  - platform: homeassistant
+    id: area_temp
+    entity_id: ${area_temp_entity_id}
+    on_value:
+      - lambda: |-
+          id(g_area_temp) = x;
+          id(g_area_temp_known) = true;
+      - lvgl.label.update:
+          id: lbl_area_temp
+          text: !lambda return str_sprintf("%.1f°", x);
+      - script.execute: area_refresh_nav
+
+  - platform: homeassistant
+    id: area_humidity
+    entity_id: ${area_humidity_entity_id}
+    on_value:
+      - lambda: |-
+          id(g_area_hum) = x;
+          id(g_area_hum_known) = true;
+      - lvgl.label.update:
+          id: lbl_area_hum
+          text: !lambda return str_sprintf("%.0f%%", x);
+      - script.execute: area_refresh_nav
+
+text_sensor:
+  # Lights group state — drives the Lights toggle label/colour. Also the
+  # page's "first HA state" signal that flips nav.yaml's Permissions step.
+  - platform: homeassistant
+    id: area_lights_state
+    entity_id: ${area_lights_entity_id}
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !id(g_perms_ok);'
+          then:
+            - lambda: id(g_perms_ok) = true;
+            - script.execute: nav_connection_check
+      - lvgl.label.update:
+          id: lbl_area_lights_state
+          text: !lambda 'return x == "on" ? "ON" : "OFF";'
+          text_color: !lambda 'return x == "on" ? 0x66dd66 : 0x888888;'
+
+  - platform: homeassistant
+    id: area_switches_state
+    entity_id: ${area_switches_entity_id}
+    on_value:
+      - lvgl.label.update:
+          id: lbl_area_switches_state
+          text: !lambda 'return x == "on" ? "ON" : "OFF";'
+          text_color: !lambda 'return x == "on" ? 0x66dd66 : 0x888888;'
+
+  # Cover group state — colours the Covers icon to signal motion/position.
+  - platform: homeassistant
+    id: area_covers_state
+    entity_id: ${area_covers_entity_id}
+    on_value:
+      - lvgl.label.update:
+          id: lbl_area_covers_icon
+          text_color: !lambda |-
+            if (x == "open")                      return 0xffaa33;
+            if (x == "opening" || x == "closing") return 0x66aaff;
+            if (x == "closed")                    return 0x888888;
+            return 0xcccccc;
+
+  # Lock group state — drives the Locks toggle label/icon/colour.
+  - platform: homeassistant
+    id: area_locks_state
+    entity_id: ${area_locks_entity_id}
+    on_value:
+      - lvgl.label.update:
+          id: lbl_area_locks_state
+          text: !lambda 'return x == "locked" ? "LOCKED" : "UNLOCKED";'
+          text_color: !lambda 'return x == "locked" ? 0x66dd66 : 0xe94560;'
+      - lvgl.label.update:
+          id: lbl_area_locks_icon
+          text: !lambda 'return x == "locked" ? "\U000F033E" : "\U000F033F";'
+          text_color: !lambda 'return x == "locked" ? 0x66dd66 : 0xe94560;'
+
+script:
+  # Build the navbar status line from whatever readings have arrived and
+  # route it to the nav slot(s) mapped to area_page (same strcmp pattern
+  # as the other UI packages).
+  - id: area_refresh_nav
+    then:
+      - lambda: |-
+          char buf[64];
+          int n = snprintf(buf, sizeof(buf), "%s", "${area_name}");
+          if (id(g_area_temp_known))
+            n += snprintf(buf + n, sizeof(buf) - n, "  %.1f°", id(g_area_temp));
+          if (id(g_area_hum_known))
+            n += snprintf(buf + n, sizeof(buf) - n, " %.0f%%", id(g_area_hum));
+          if (strcmp("${nav_page_1}", "area_page") == 0) id(g_nav_status_0) = buf;
+          if (strcmp("${nav_page_2}", "area_page") == 0) id(g_nav_status_1) = buf;
+          if (strcmp("${nav_page_3}", "area_page") == 0) id(g_nav_status_2) = buf;
+          if (strcmp("${nav_page_4}", "area_page") == 0) id(g_nav_status_3) = buf;
+      - script.execute: nav_refresh_status
+
+  # Show/hide each optional card based on whether its entity is configured
+  # (i.e. not the `<domain>.none` sentinel). Hidden FLEX children collapse,
+  # so the remaining cards reflow up the column. Run once at boot.
+  - id: area_apply_visibility
+    then:
+      # Switches
+      - if:
+          condition: {lambda: 'return strcmp("${area_switches_entity_id}", "switch.none") == 0;'}
+          then: [{lvgl.widget.hide: card_area_switches}]
+          else: [{lvgl.widget.show: card_area_switches}]
+      # Covers
+      - if:
+          condition: {lambda: 'return strcmp("${area_covers_entity_id}", "cover.none") == 0;'}
+          then: [{lvgl.widget.hide: card_area_covers}]
+          else: [{lvgl.widget.show: card_area_covers}]
+      # Locks
+      - if:
+          condition: {lambda: 'return strcmp("${area_locks_entity_id}", "lock.none") == 0;'}
+          then: [{lvgl.widget.hide: card_area_locks}]
+          else: [{lvgl.widget.show: card_area_locks}]
+      # Temperature half of the climate row
+      - if:
+          condition: {lambda: 'return strcmp("${area_temp_entity_id}", "sensor.none") == 0;'}
+          then: [{lvgl.widget.hide: grp_area_temp}]
+          else: [{lvgl.widget.show: grp_area_temp}]
+      # Humidity half of the climate row
+      - if:
+          condition: {lambda: 'return strcmp("${area_humidity_entity_id}", "sensor.none") == 0;'}
+          then: [{lvgl.widget.hide: grp_area_hum}]
+          else: [{lvgl.widget.show: grp_area_hum}]
+      # Whole climate row — hidden only when BOTH temp and humidity are unset.
+      - if:
+          condition:
+            lambda: |-
+              return strcmp("${area_temp_entity_id}", "sensor.none") == 0 &&
+                     strcmp("${area_humidity_entity_id}", "sensor.none") == 0;
+          then: [{lvgl.widget.hide: card_area_climate}]
+          else: [{lvgl.widget.show: card_area_climate}]
+
+  # Group actions — call the service on the configured entity; HA fans it
+  # out to every member of the group (or area / single device).
+  - id: area_lights_toggle
+    then:
+      - homeassistant.service:
+          service: light.toggle
+          data:
+            entity_id: ${area_lights_entity_id}
+
+  - id: area_switches_toggle
+    then:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${area_switches_entity_id}
+
+  - id: area_covers_open
+    then:
+      - homeassistant.service:
+          service: cover.open_cover
+          data:
+            entity_id: ${area_covers_entity_id}
+
+  - id: area_covers_stop
+    then:
+      - homeassistant.service:
+          service: cover.stop_cover
+          data:
+            entity_id: ${area_covers_entity_id}
+
+  - id: area_covers_close
+    then:
+      - homeassistant.service:
+          service: cover.close_cover
+          data:
+            entity_id: ${area_covers_entity_id}
+
+  # Locks have no universal toggle service — branch on the current group
+  # state and call lock/unlock explicitly.
+  - id: area_locks_toggle
+    then:
+      - if:
+          condition:
+            lambda: 'return id(area_locks_state).state == "locked";'
+          then:
+            - homeassistant.service:
+                service: lock.unlock
+                data:
+                  entity_id: ${area_locks_entity_id}
+          else:
+            - homeassistant.service:
+                service: lock.lock
+                data:
+                  entity_id: ${area_locks_entity_id}
+
+# Apply card visibility once LVGL is up (priority -100, like nav/sleep-mode).
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: area_apply_visibility
+
+font:
+  # Card icons + cover arrows. Separate id per package so glyph sets don't
+  # cross-couple (matches mdi_icons_garage / mdi_icons_energy convention).
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: mdi_icons_area
+    size: 30
+    glyphs:
+      - "\U000F0335"  # mdi:lightbulb       → Lights
+      - "\U000F0521"  # mdi:toggle-switch   → Switches
+      - "\U000F00AC"  # mdi:blinds          → Covers
+      - "\U000F033E"  # mdi:lock            → Locks (locked)
+      - "\U000F033F"  # mdi:lock-open       → Locks (unlocked)
+      - "\U000F050F"  # mdi:thermometer     → temperature
+      - "\U000F058E"  # mdi:water-percent   → humidity
+      - "\U000F0737"  # mdi:arrow-up-bold   → cover open
+      - "\U000F04DB"  # mdi:stop            → cover stop
+      - "\U000F072E"  # mdi:arrow-down-bold → cover close
+
+lvgl:
+  pages:
+    - id: area_page
+      widgets:
+        - obj:
+            id: area_page_root
+            width: ${display_width}
+            height: ${display_height}
+            bg_color: 0x1a1a2e
+            border_width: 0
+            pad_top: 68
+            pad_bottom: 12
+            pad_left: 20
+            pad_right: 20
+            scrollbar_mode: "off"
+            scrollable: false
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 8
+            widgets:
+
+              # ── Area name ─────────────────────────────────────────
+              - label:
+                  id: lbl_area_name
+                  width: 440
+                  height: 32
+                  text: "${area_name}"
+                  long_mode: DOT
+                  text_align: CENTER
+                  text_font: montserrat_28
+                  text_color: 0xffffff
+
+              # ── Climate row (temp · humidity) ─────────────────────
+              - obj:
+                  id: card_area_climate
+                  width: 440
+                  height: 56
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                  widgets:
+                    - obj:
+                        id: grp_area_temp
+                        width: 170
+                        height: 44
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        layout:
+                          type: FLEX
+                          flex_flow: ROW
+                          flex_align_main: CENTER
+                          flex_align_cross: CENTER
+                          pad_column: 8
+                        widgets:
+                          - label:
+                              text: "\U000F050F"  # mdi:thermometer
+                              text_font: mdi_icons_area
+                              text_color: 0xe94560
+                          - label:
+                              id: lbl_area_temp
+                              text: "--°"
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+                    - obj:
+                        id: grp_area_hum
+                        width: 170
+                        height: 44
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+                        layout:
+                          type: FLEX
+                          flex_flow: ROW
+                          flex_align_main: CENTER
+                          flex_align_cross: CENTER
+                          pad_column: 8
+                        widgets:
+                          - label:
+                              text: "\U000F058E"  # mdi:water-percent
+                              text_font: mdi_icons_area
+                              text_color: 0x66aaff
+                          - label:
+                              id: lbl_area_hum
+                              text: "--%"
+                              text_font: montserrat_28
+                              text_color: 0xffffff
+
+              # ── Lights group (mandatory) ──────────────────────────
+              - obj:
+                  id: card_area_lights
+                  width: 440
+                  height: 63
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 12
+                  pad_left: 18
+                  pad_right: 12
+                  pad_top: 0
+                  pad_bottom: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: START
+                    flex_align_cross: CENTER
+                    pad_column: 14
+                  widgets:
+                    - label:
+                        text: "\U000F0335"  # mdi:lightbulb
+                        text_font: mdi_icons_area
+                        text_color: 0xffcf66
+                    - label:
+                        flex_grow: 1
+                        text: "Lights"
+                        text_font: montserrat_22
+                        text_color: 0xffffff
+                    - button:
+                        width: 110
+                        height: 48
+                        bg_color: 0x0f3460
+                        on_press:
+                          - script.execute: area_lights_toggle
+                        widgets:
+                          - label:
+                              id: lbl_area_lights_state
+                              align: CENTER
+                              text: "--"
+                              text_font: montserrat_22
+                              text_color: 0x888888
+
+              # ── Switches group (optional) ─────────────────────────
+              - obj:
+                  id: card_area_switches
+                  width: 440
+                  height: 63
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 12
+                  pad_left: 18
+                  pad_right: 12
+                  pad_top: 0
+                  pad_bottom: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  hidden: true
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: START
+                    flex_align_cross: CENTER
+                    pad_column: 14
+                  widgets:
+                    - label:
+                        text: "\U000F0521"  # mdi:toggle-switch
+                        text_font: mdi_icons_area
+                        text_color: 0xcccccc
+                    - label:
+                        flex_grow: 1
+                        text: "Switches"
+                        text_font: montserrat_22
+                        text_color: 0xffffff
+                    - button:
+                        width: 110
+                        height: 48
+                        bg_color: 0x0f3460
+                        on_press:
+                          - script.execute: area_switches_toggle
+                        widgets:
+                          - label:
+                              id: lbl_area_switches_state
+                              align: CENTER
+                              text: "--"
+                              text_font: montserrat_22
+                              text_color: 0x888888
+
+              # ── Covers group (optional) ───────────────────────────
+              - obj:
+                  id: card_area_covers
+                  width: 440
+                  height: 79
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 12
+                  pad_left: 18
+                  pad_right: 12
+                  pad_top: 0
+                  pad_bottom: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  hidden: true
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: START
+                    flex_align_cross: CENTER
+                    pad_column: 10
+                  widgets:
+                    - label:
+                        id: lbl_area_covers_icon
+                        text: "\U000F00AC"  # mdi:blinds
+                        text_font: mdi_icons_area
+                        text_color: 0xcccccc
+                    - label:
+                        flex_grow: 1
+                        text: "Covers"
+                        text_font: montserrat_22
+                        text_color: 0xffffff
+                    - button:
+                        width: 56
+                        height: 60
+                        bg_color: 0x0b8457
+                        on_press:
+                          - script.execute: area_covers_open
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "\U000F0737"  # mdi:arrow-up-bold
+                              text_font: mdi_icons_area
+                              text_color: 0xffffff
+                    - button:
+                        width: 56
+                        height: 60
+                        bg_color: 0x888888
+                        on_press:
+                          - script.execute: area_covers_stop
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "\U000F04DB"  # mdi:stop
+                              text_font: mdi_icons_area
+                              text_color: 0xffffff
+                    - button:
+                        width: 56
+                        height: 60
+                        bg_color: 0xe94560
+                        on_press:
+                          - script.execute: area_covers_close
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "\U000F072E"  # mdi:arrow-down-bold
+                              text_font: mdi_icons_area
+                              text_color: 0xffffff
+
+              # ── Locks group (optional) ────────────────────────────
+              - obj:
+                  id: card_area_locks
+                  width: 440
+                  height: 63
+                  bg_color: 0x16213e
+                  border_width: 0
+                  radius: 12
+                  pad_left: 18
+                  pad_right: 12
+                  pad_top: 0
+                  pad_bottom: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  hidden: true
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: START
+                    flex_align_cross: CENTER
+                    pad_column: 14
+                  widgets:
+                    - label:
+                        id: lbl_area_locks_icon
+                        text: "\U000F033E"  # mdi:lock
+                        text_font: mdi_icons_area
+                        text_color: 0xcccccc
+                    - label:
+                        flex_grow: 1
+                        text: "Locks"
+                        text_font: montserrat_22
+                        text_color: 0xffffff
+                    - button:
+                        width: 130
+                        height: 48
+                        bg_color: 0x0f3460
+                        on_press:
+                          - script.execute: area_locks_toggle
+                        widgets:
+                          - label:
+                              id: lbl_area_locks_state
+                              align: CENTER
+                              text: "--"
+                              text_font: montserrat_18
+                              text_color: 0x888888

@@ -97,3 +97,18 @@ jobs:
               echo "::error::Unexpected warning(s) in bedroom-alarm-panel build (above)"
               exit 1
           fi
+
+      - name: Compile area panel (group dashboard routing test)
+        # Slim single-page (nav_page_count: 1) config that registers
+        # area_page in nav slot 1, exercising the strcmp area_page routing
+        # in packages/area-ui.yaml. Board / area entity defaults come from
+        # the packages.
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile tests/area-panel.yaml 2>&1 \
+              | tee area-build.log
+          if grep -E '^WARNING ' area-build.log; then
+              echo "::error::Unexpected warning(s) in area-panel build (above)"
+              exit 1
+          fi
