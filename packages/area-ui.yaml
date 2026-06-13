@@ -750,10 +750,12 @@ lvgl:
         # dismiss. Brightness/colour sections are shown per capability.
         - obj:
             id: area_light_popup
+            # Start below the navbar so the title bar stays visible and
+            # undimmed. height = display_height(480) - nav_bar_height(60).
             x: 0
-            y: 0
+            y: ${nav_bar_height}
             width: ${display_width}
-            height: ${display_height}
+            height: 420
             bg_color: 0x000000
             bg_opa: 70%
             border_width: 0
@@ -771,10 +773,10 @@ lvgl:
               # close the popup.
               - obj:
                   id: area_light_popup_card
-                  align: CENTER
-                  y: 18
-                  width: 400
-                  height: SIZE_CONTENT
+                  align: TOP_MID
+                  y: 8
+                  width: 456
+                  height: 404
                   bg_color: 0x16213e
                   border_width: 0
                   radius: 16
@@ -796,7 +798,7 @@ lvgl:
 
                     # On/off row (always shown)
                     - obj:
-                        width: 360
+                        width: 424
                         height: 48
                         bg_opa: TRANSP
                         border_width: 0
@@ -830,7 +832,7 @@ lvgl:
                     # Brightness section (shown when dimmable)
                     - obj:
                         id: grp_popup_brightness
-                        width: 360
+                        width: 424
                         height: SIZE_CONTENT
                         bg_opa: TRANSP
                         border_width: 0
@@ -846,7 +848,7 @@ lvgl:
                           pad_row: 6
                         widgets:
                           - obj:
-                              width: 360
+                              width: 424
                               height: 22
                               bg_opa: TRANSP
                               border_width: 0
@@ -870,7 +872,7 @@ lvgl:
                                     text_color: 0xffffff
                           - slider:
                               id: slider_area_brightness
-                              width: 360
+                              width: 424
                               height: 18
                               min_value: 0
                               max_value: 100
@@ -893,7 +895,7 @@ lvgl:
                     # Colour swatches section (shown when colour-capable)
                     - obj:
                         id: grp_popup_color
-                        width: 360
+                        width: 424
                         height: SIZE_CONTENT
                         bg_opa: TRANSP
                         border_width: 0
@@ -913,7 +915,7 @@ lvgl:
                               text_font: montserrat_18
                               text_color: 0xcccccc
                           - obj:
-                              width: 360
+                              width: 424
                               height: SIZE_CONTENT
                               bg_opa: TRANSP
                               border_width: 0
@@ -985,9 +987,21 @@ lvgl:
                                     on_press:
                                       - script.execute: {id: area_set_color, r: 255, g: 255, b: 255}
 
+                    # Spacer — grows to fill the card so Done sits at the
+                    # bottom regardless of which sections are shown.
+                    - obj:
+                        width: 1
+                        height: 1
+                        flex_grow: 1
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "off"
+                        scrollable: false
+
                     # Close
                     - button:
-                        width: 360
+                        width: 424
                         height: 48
                         bg_color: 0x0f3460
                         on_press:
