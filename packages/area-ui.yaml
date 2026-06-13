@@ -109,8 +109,8 @@ text_sensor:
             - script.execute: nav_connection_check
       - lvgl.label.update:
           id: lbl_area_lights_state
-          text: !lambda 'return x == "on" ? "ON" : "OFF";'
-          text_color: !lambda 'return x == "on" ? 0x66dd66 : 0x888888;'
+          text: !lambda 'return std::string(x == "on" ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(x == "on" ? 0x66dd66 : 0x888888);'
 
   - platform: homeassistant
     id: area_switches_state
@@ -118,8 +118,8 @@ text_sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_area_switches_state
-          text: !lambda 'return x == "on" ? "ON" : "OFF";'
-          text_color: !lambda 'return x == "on" ? 0x66dd66 : 0x888888;'
+          text: !lambda 'return std::string(x == "on" ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(x == "on" ? 0x66dd66 : 0x888888);'
 
   # Cover group state — colours the Covers icon to signal motion/position.
   - platform: homeassistant
@@ -129,10 +129,10 @@ text_sensor:
       - lvgl.label.update:
           id: lbl_area_covers_icon
           text_color: !lambda |-
-            if (x == "open")                      return 0xffaa33;
-            if (x == "opening" || x == "closing") return 0x66aaff;
-            if (x == "closed")                    return 0x888888;
-            return 0xcccccc;
+            if (x == "open")                      return lv_color_hex(0xffaa33);
+            if (x == "opening" || x == "closing") return lv_color_hex(0x66aaff);
+            if (x == "closed")                    return lv_color_hex(0x888888);
+            return lv_color_hex(0xcccccc);
 
   # Lock group state — drives the Locks toggle label/icon/colour.
   - platform: homeassistant
@@ -141,12 +141,12 @@ text_sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_area_locks_state
-          text: !lambda 'return x == "locked" ? "LOCKED" : "UNLOCKED";'
-          text_color: !lambda 'return x == "locked" ? 0x66dd66 : 0xe94560;'
+          text: !lambda 'return std::string(x == "locked" ? "LOCKED" : "UNLOCKED");'
+          text_color: !lambda 'return lv_color_hex(x == "locked" ? 0x66dd66 : 0xe94560);'
       - lvgl.label.update:
           id: lbl_area_locks_icon
-          text: !lambda 'return x == "locked" ? "\U000F033E" : "\U000F033F";'
-          text_color: !lambda 'return x == "locked" ? 0x66dd66 : 0xe94560;'
+          text: !lambda 'return std::string(x == "locked" ? "\U000F033E" : "\U000F033F");'
+          text_color: !lambda 'return lv_color_hex(x == "locked" ? 0x66dd66 : 0xe94560);'
 
 script:
   # Build the navbar status line from whatever readings have arrived and

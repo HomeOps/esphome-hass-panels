@@ -63,5 +63,25 @@ Releases are managed automatically by
 
 - **YAML Lint** (`ci.yaml`) — runs `yamllint -d relaxed` on every push and PR
   to `main`.
+- **ESPHome Compile** (`ci.yaml`) — full `esphome compile` of the main config
+  and each `tests/*.yaml` fixture. New pages/packages must be registered in a
+  fixture (see below) so they're actually compiled.
 - **Release Please** (`release-please.yaml`) — runs on push to `main` to
   manage release PRs and tags.
+
+### Validating UI changes — compile, don't just `config`
+
+`esphome config` only validates the YAML **schema**; it does **not** compile
+lambdas. C++ errors in `!lambda` blocks (wrong return type, bad API call) slip
+straight through `config` and only surface during `esphome compile`. So:
+
+- After editing any `!lambda`, validate with `esphome compile <fixture>.yaml`,
+  not `esphome config`.
+- LVGL lambda return types are strict: a `text:` lambda must return
+  `std::string` (wrap bare/ternary `const char*` in `std::string(...)`); a
+  `text_color:` lambda must return `lv_color_t` (wrap hex in
+  `lv_color_hex(0x...)`). The literal forms (`text_color: 0x...`) auto-convert,
+  but lambdas do not.
+- Every new page must be registered in a `tests/*.yaml` fixture **with all of
+  its entities configured**, so each `on_value` lambda is code-generated and
+  type-checked by CI's compile job.
