@@ -1,0 +1,49 @@
+# CI fixture — "everything" panel.
+#
+# The maximal build: wraps the full bundle (every UI page compiled) the way a
+# real device consumes it (packages: !include ../esp32-hass-panel.yaml), then
+# configures EVERY entity and fills all four nav slots so every page's HA
+# bindings, nav routing, and lambdas are code-generated and type-checked.
+# Also flips sleep mode to its non-default branch (RESTORE_DEFAULT_ON + a
+# >=6s auto-off timeout).
+#
+# Pair with tests/area-panel.yaml, which is the opposite end — the smallest
+# slim build (core + a single page).
+#
+# Compile-only — never flashed to a real device.
+
+substitutions:
+  name: test-full-panel
+  friendly_name: Test Full Panel
+
+  # Every entity configured (defaults would also compile, but this exercises
+  # the real override path for all of them).
+  alarm_entity_id: alarm_control_panel.test_home
+  thermostat_entity_id: climate.test_thermostat
+  cover_entity_id: cover.test_garage
+  energy_battery_entity_id: sensor.test_battery
+  energy_grid_status_entity_id: binary_sensor.test_grid
+  energy_low_power_entity_id: binary_sensor.test_low_power
+  area_name: Test Area
+  area_lights_entity_id: light.test_area
+  area_switches_entity_id: switch.test_area
+  area_covers_entity_id: cover.test_area
+  area_locks_entity_id: lock.test_area
+  area_temp_entity_id: sensor.test_area_temperature
+  area_humidity_entity_id: sensor.test_area_humidity
+
+  # Fill all four swipe slots (area page's routing is covered by
+  # tests/area-panel.yaml; energy in slot 4 exercises its routing here).
+  nav_page_1: alarm_page
+  nav_page_2: thermostat_page
+  nav_page_3: cover_page
+  nav_page_4: energy_page
+  nav_page_count: "4"
+
+  # Non-default sleep — exercises sleep-mode.yaml's RESTORE_DEFAULT_ON branch
+  # and the >=6s auto-off timer path.
+  sleep_mode_default_state: "ON"
+  sleep_mode_default_timeout: "30"
+
+packages:
+  base: !include ../esp32-hass-panel.yaml

@@ -6,7 +6,7 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "esp32-hass-panel.yaml"
+          "path": "packages/core.yaml"
         }
       ]
     }

@@ -74,7 +74,8 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 | File | Description |
 |---|---|
-| `esp32-hass-panel.yaml` | Main entry point — device identity, connectivity, and package includes |
+| `esp32-hass-panel.yaml` | Full-bundle entry point — `core` + every UI page wired into the swipe cycle |
+| `packages/core.yaml` | Common scaffolding — board + nav + sleep + connectivity + framework/version; everything **except** the UI pages. Compose with selected UI packages for a slim build |
 | `packages/board.yaml` | Board hardware — display, touchscreen, backlight, SPI, I2C, touch-state globals |
 | `packages/alarm-keypad-ui.yaml` | Alarm keypad UI — globals, HA sensors, animations, fonts, LVGL page |
 | `packages/thermostat-ui.yaml` | Thermostat UI — target/current temp, HVAC modes, presets, LVGL page |
@@ -90,18 +91,56 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 
 ### Architecture
 
-The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages):
+The configuration is split into composable [ESPHome packages](https://esphome.io/components/packages). `packages/core.yaml` holds everything common (hardware, nav, sleep, connectivity, framework + firmware version); each UI page is a separate package. The full-bundle entry includes them all:
 
 ```
-esp32-hass-panel.yaml                ← substitutions + device setup
-  ├─ packages/board.yaml             ← hardware peripherals (swappable per board)
+esp32-hass-panel.yaml                ← full bundle: nav wiring + all UI pages
+  ├─ packages/core.yaml              ← board + nav + sleep + connectivity + version
+  │    ├─ packages/board.yaml        ← hardware peripherals (swappable per board)
+  │    ├─ packages/nav.yaml          ← swipe nav, connecting overlay, idle return
+  │    └─ packages/sleep-mode.yaml   ← touch-to-wake backlight + idle auto-off
   ├─ packages/alarm-keypad-ui.yaml   ← alarm LVGL page (reusable UI component)
   ├─ packages/thermostat-ui.yaml     ← thermostat LVGL page (reusable UI component)
   ├─ packages/cover-ui.yaml          ← cover LVGL page (garage / blinds / gate)
   ├─ packages/energy-ui.yaml         ← energy LVGL page (battery / grid / low-power alert)
-  ├─ packages/area-ui.yaml           ← area LVGL page (lights / switches / covers / locks + climate)
-  └─ packages/nav.yaml               ← swipe nav, connecting overlay, idle return
+  └─ packages/area-ui.yaml           ← area LVGL page (lights / switches / covers / locks + climate)
 ```
+
+**Slim builds — only compile the pages you use.** Every UI page you compile costs flash whether or not it's in the swipe cycle, so a device that needs just one page can compose `core` + that page instead of the full bundle:
+
+A single git source with a `files:` list pulls the repo once — no repeated `url`/`ref`:
+
+```yaml
+substitutions:
+  name: panel-den
+  friendly_name: Den Panel
+  nav_page_1: area_page
+  nav_page_count: "1"
+  area_lights_entity_id: light.den_panel_lights
+
+packages:
+  panel:
+    url: https://github.com/HomeOps/esphome-hass-panels
+    ref: v2.2.0            # or a later tag
+    refresh: 0d
+    files:
+      - packages/core.yaml          # board + nav + sleep + connectivity
+      - packages/area-ui.yaml       # the one page this device uses
+      # other UI pages omitted -> not compiled
+```
+
+This drops the unused pages from flash (~140 KB measured for four). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
+
+#### When the image still doesn't fit — opt-in 16 MB flash
+
+The default partition layout gives **~1.75 MB per OTA app slot** (a 4 MB layout, fully OTA-friendly). If a fully-loaded build overflows it, set the **`flash_size`** substitution to `16MB` — ESPHome auto-generates **~7.75 MB** app slots:
+
+```yaml
+substitutions:
+  flash_size: "16MB"     # default is "4MB"
+```
+
+⚠️ **This is a partition-table change — adopt it with a one-time USB-serial flash, not OTA.** OTA never rewrites the partition table, so it can't move you onto the bigger layout (a too-big image just fails to fit the old slot). Run `esptool.py erase_flash`, then do the first install over serial; OTA works normally afterward. Requires a device with ≥ 16 MB flash (`esptool.py flash_id`). Prefer slimming first — if dropping unused pages keeps you under 1.75 MB, you never need this and stay fully OTA-updatable.
 
 Each UI package contributes its own LVGL **page**. The navigation package wires
 swipe gestures, a connecting overlay, and idle auto-return across all registered
@@ -116,6 +155,7 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 |---|---|---|
 | `name` | `esp32-hass-panel` | Device name (used for hostname, mDNS, etc.) |
 | `friendly_name` | `ESP32 Home Panel` | Human-readable name shown in Home Assistant |
+| `flash_size` | `4MB` | Flash/OTA partition layout. `4MB` = ~1.75 MB app slots (OTA-friendly). Set to `16MB` on a ≥16 MB device to get ~7.75 MB slots — **partition change, adopt via one-time USB-serial flash** |
 | `display_platform` | `st7701s` | ESPHome display platform component |
 | `display_width` | `480` | Display panel width in pixels |
 | `display_height` | `480` | Display panel height in pixels |

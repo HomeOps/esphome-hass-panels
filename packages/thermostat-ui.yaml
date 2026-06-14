@@ -10,6 +10,15 @@
 #   y=290..350 — preset dropdown
 #   Remaining space available for future features
 
+substitutions:
+  # HA climate entity + setpoint range this page controls. Self-defaulted so
+  # the package is usable standalone (slim composition), like the other UI
+  # packages. Override per device when needed.
+  thermostat_entity_id: climate.thermostat
+  thermostat_temp_min: "16.0"
+  thermostat_temp_max: "30.0"
+  thermostat_temp_step: "0.5"
+
 globals:
   - id: target_temp
     type: float
