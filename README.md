@@ -108,6 +108,8 @@ esp32-hass-panel.yaml                ← full bundle: nav wiring + all UI pages
 
 **Slim builds — only compile the pages you use.** Every UI page you compile costs flash whether or not it's in the swipe cycle, so a device that needs just one page can compose `core` + that page instead of the full bundle:
 
+A single git source with a `files:` list pulls the repo once — no repeated `url`/`ref`:
+
 ```yaml
 substitutions:
   name: panel-den
@@ -117,27 +119,25 @@ substitutions:
   area_lights_entity_id: light.den_panel_lights
 
 packages:
-  core:
+  panel:
     url: https://github.com/HomeOps/esphome-hass-panels
     ref: v2.2.0            # or a later tag
-    file: packages/core.yaml
-  area_ui:
-    url: https://github.com/HomeOps/esphome-hass-panels
-    ref: v2.2.0
-    file: packages/area-ui.yaml
+    refresh: 0d
+    files:
+      - packages/core.yaml          # board + nav + sleep + connectivity
+      - packages/area-ui.yaml       # the one page this device uses
+      # other UI pages omitted -> not compiled
 ```
 
-This drops the four unused pages from flash (~140 KB measured). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
+This drops the unused pages from flash (~140 KB measured for four). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
 
 #### When the image still doesn't fit — opt-in 16 MB flash
 
-The default partition layout gives **~1.75 MB per OTA app slot** (a 4 MB layout, fully OTA-friendly). If a fully-loaded build overflows it, include `packages/flash-16mb.yaml` to switch to a 16 MB layout with **~7.75 MB** app slots:
+The default partition layout gives **~1.75 MB per OTA app slot** (a 4 MB layout, fully OTA-friendly). If a fully-loaded build overflows it, set the **`flash_size`** substitution to `16MB` — ESPHome auto-generates **~7.75 MB** app slots:
 
 ```yaml
-packages:
-  core:  {url: ..., ref: v2.2.0, file: packages/core.yaml}
-  # ... your UI pages ...
-  flash: {url: ..., ref: v2.2.0, file: packages/flash-16mb.yaml}   # opt-in
+substitutions:
+  flash_size: "16MB"     # default is "4MB"
 ```
 
 ⚠️ **This is a partition-table change — adopt it with a one-time USB-serial flash, not OTA.** OTA never rewrites the partition table, so it can't move you onto the bigger layout (a too-big image just fails to fit the old slot). Run `esptool.py erase_flash`, then do the first install over serial; OTA works normally afterward. Requires a device with ≥ 16 MB flash (`esptool.py flash_id`). Prefer slimming first — if dropping unused pages keeps you under 1.75 MB, you never need this and stay fully OTA-updatable.
@@ -155,6 +155,7 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 |---|---|---|
 | `name` | `esp32-hass-panel` | Device name (used for hostname, mDNS, etc.) |
 | `friendly_name` | `ESP32 Home Panel` | Human-readable name shown in Home Assistant |
+| `flash_size` | `4MB` | Flash/OTA partition layout. `4MB` = ~1.75 MB app slots (OTA-friendly). Set to `16MB` on a ≥16 MB device to get ~7.75 MB slots — **partition change, adopt via one-time USB-serial flash** |
 | `display_platform` | `st7701s` | ESPHome display platform component |
 | `display_width` | `480` | Display panel width in pixels |
 | `display_height` | `480` | Display panel height in pixels |

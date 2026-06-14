@@ -22,6 +22,12 @@
 substitutions:
   name: esp32-hass-panel
   friendly_name: ESP32 Home Panel
+  # Flash / OTA partition layout. Default "4MB" → ~1.75MB per OTA app slot,
+  # fully OTA-friendly. Override to "16MB" on a >=16MB device whose firmware
+  # has outgrown that slot → ESPHome auto-sizes ~7.75MB app slots. NOTE: a
+  # partition-table change only takes effect via a one-time USB-serial flash
+  # (OTA never rewrites the partition table); erase_flash first.
+  flash_size: "4MB"
 
 packages:
   board: !include board.yaml
@@ -43,6 +49,7 @@ esphome:
 esp32:
   board: esp32-s3-devkitc-1
   variant: esp32s3
+  flash_size: ${flash_size}
   framework:
     type: esp-idf
 
