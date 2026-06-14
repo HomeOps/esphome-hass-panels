@@ -129,6 +129,19 @@ packages:
 
 This drops the four unused pages from flash (~140 KB measured). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
 
+#### When the image still doesn't fit — opt-in 16 MB flash
+
+The default partition layout gives **~1.75 MB per OTA app slot** (a 4 MB layout, fully OTA-friendly). If a fully-loaded build overflows it, include `packages/flash-16mb.yaml` to switch to a 16 MB layout with **~7.75 MB** app slots:
+
+```yaml
+packages:
+  core:  {url: ..., ref: v2.2.0, file: packages/core.yaml}
+  # ... your UI pages ...
+  flash: {url: ..., ref: v2.2.0, file: packages/flash-16mb.yaml}   # opt-in
+```
+
+⚠️ **This is a partition-table change — adopt it with a one-time USB-serial flash, not OTA.** OTA never rewrites the partition table, so it can't move you onto the bigger layout (a too-big image just fails to fit the old slot). Run `esptool.py erase_flash`, then do the first install over serial; OTA works normally afterward. Requires a device with ≥ 16 MB flash (`esptool.py flash_id`). Prefer slimming first — if dropping unused pages keeps you under 1.75 MB, you never need this and stay fully OTA-updatable.
+
 Each UI package contributes its own LVGL **page**. The navigation package wires
 swipe gestures, a connecting overlay, and idle auto-return across all registered
 pages. To add more panels, include additional UI packages and register them in
