@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.2.0...v2.3.0) (2026-06-14)
+
+
+### Features
+
+* composable core package for slim builds + opt-in 16MB flash ([#51](https://github.com/HomeOps/esphome-hass-panels/issues/51)) ([0463253](https://github.com/HomeOps/esphome-hass-panels/commit/046325327dc41adea004e8ae54194ae3e8bdcf4e))
+
 ## [2.2.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.1.1...v2.2.0) (2026-06-13)
 
 
