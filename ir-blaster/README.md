@@ -73,6 +73,68 @@ remote_transmitter:
 Add `transmit_*` actions / buttons (or a `climate` IR component such as
 `climate_ir_lg`, `coolix`, etc.) on top of this transmitter as needed.
 
+## Learning codes from your remotes (IR receiver test)
+
+To clone a SofaBaton (or any old remote), capture its codes with the **M5 IR
+Unit's receiver** and read them out of the ESPHome logs, then replay them later
+through the emitter.
+
+**Wiring — M5 IR Unit (Grove HY2.0-4P) → panel:**
+
+| IR Unit wire | Signal | Panel GPIO |
+|--------------|--------|------------|
+| Red | 5 V | 5 V |
+| Black | GND | GND |
+| White | IR_RX (receiver) | **GPIO43** |
+| Yellow | IR_TX (emitter) | **GPIO44** *(for replay later)* |
+
+GPIO43/44 are the only easily-free pins on this board — almost everything else
+drives the RGB display (see `packages/board.yaml`). They're also the board's
+**UART0 serial** pins, so **read the logs over WiFi** (ESPHome dashboard, or
+`esphome logs <config>.yaml` over the network), not the USB serial monitor.
+
+> The pin must be one the back-board 2×4 connector actually breaks out — still
+> pending the multimeter pinout. If 43/44 aren't exposed there, use another free
+> GPIO. (On an M5 Atom instead of the panel, the Grove pins are G26/G32.)
+
+**Test YAML — add to the device config, `esphome compile`, flash:**
+
+```yaml
+# Capture IR codes: point a remote at the M5 IR Unit, press a button,
+# watch the decoded frame appear in the logs.
+remote_receiver:
+  id: ir_rx
+  pin:
+    number: GPIO43
+    inverted: true        # demodulating IR receivers idle HIGH, pull LOW on a burst
+    mode:
+      input: true
+      pullup: true
+  dump: all               # decode + log every known protocol (NEC, Sony, RC5, Pronto, raw…)
+  tolerance: 25%          # forgiving match for cheap remotes / SofaBaton
+  buffer_size: 2kb        # headroom for long frames (A/C, macros)
+  idle: 25ms
+
+# Optional — keep the emitter ready to replay what you learned
+remote_transmitter:
+  id: ir_tx
+  pin: GPIO44
+  carrier_duty_percent: 50%
+```
+
+**How to learn a command:**
+
+1. Flash, then open the logs over WiFi.
+2. Point the SofaBaton at the IR Unit (within ~30 cm) and press one button.
+3. The log prints the decoded frame, e.g.
+   `Received NEC: address=0x20DF, command=0x10EF` (or a `Pronto` / `raw` dump).
+4. Drop that into a `remote_transmitter.transmit_nec:` (etc.) action to replay
+   it. For protocols ESPHome can't name, copy the `raw` / `pronto` dump verbatim.
+
+> CI note: `remote_receiver` / `remote_transmitter` aren't in the shipped
+> firmware yet — this is a bench test. If it graduates to a real feature, wire it
+> into a `tests/*.yaml` fixture so CI compiles the lambdas (see root `CLAUDE.md`).
+
 ## The back-board 2×4 connector
 
 The panel's back board (power + relays) exposes an **8-pin, 2×4 connector**.
