@@ -100,27 +100,58 @@ drives the RGB display (see `packages/board.yaml`). They're also the board's
 **Test YAML — add to the device config, `esphome compile`, flash:**
 
 ```yaml
-# Capture IR codes: point a remote at the M5 IR Unit, press a button,
-# watch the decoded frame appear in the logs.
+# ── Logging tuned for reading IR captures ────────────────────────────
+logger:
+  level: DEBUG            # IR dumpers print at DEBUG
+  baud_rate: 0            # disable UART0 logging → frees GPIO43/44 for IR;
+                          # read logs over WiFi:  esphome logs <config>.yaml
+  logs:
+    remote_receiver: DEBUG  # keep IR loud …
+    st7701s: WARN           # … and mute the chatty panel stack so the
+    gt911: WARN             #     decoded IR lines are easy to spot
+    light: WARN
+    sensor: WARN
+
+# ── IR receiver: capture + decode ────────────────────────────────────
 remote_receiver:
   id: ir_rx
   pin:
     number: GPIO43
-    inverted: true        # demodulating IR receivers idle HIGH, pull LOW on a burst
+    inverted: true         # demodulating IR receivers idle HIGH, pull LOW on a burst
     mode:
       input: true
       pullup: true
-  dump: all               # decode + log every known protocol (NEC, Sony, RC5, Pronto, raw…)
-  tolerance: 25%          # forgiving match for cheap remotes / SofaBaton
-  buffer_size: 2kb        # headroom for long frames (A/C, macros)
+  tolerance: 25%           # forgiving match for cheap remotes / SofaBaton
+  buffer_size: 2kb         # headroom for long frames (A/C, macros)
   idle: 25ms
+  dump:                    # named protocols → clean one-line decodes
+    - nec
+    - sony
+    - samsung
+    - panasonic
+    - rc5
+    - rc6
+    - lg
+    - jvc
+    - pronto               # universal hex — paste straight into transmit_pronto
+  # - raw                  # uncomment ONLY if a remote refuses to decode (very noisy)
 
-# Optional — keep the emitter ready to replay what you learned
+# ── Emitter, ready to replay what you learned ────────────────────────
 remote_transmitter:
   id: ir_tx
   pin: GPIO44
   carrier_duty_percent: 50%
 ```
+
+Why this reads cleanly:
+
+- **`baud_rate: 0`** turns off UART0 logging — that's what actually frees
+  GPIO43/44 for IR. Logs then come over WiFi via `esphome logs`.
+- **Curated `dump:` list** (named protocols, no `raw`) gives one tidy line per
+  press — `Received NEC: address=0x20DF, command=0x10EF` — instead of a wall of
+  microsecond timings. Add `- raw` back only when a remote won't decode.
+- **`logs:` per-tag** keeps `remote_receiver` at DEBUG while muting the display
+  /touch components, so each capture stands alone in the console.
 
 **How to learn a command:**
 
