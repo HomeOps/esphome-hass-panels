@@ -122,3 +122,21 @@ jobs:
               echo "::error::Unexpected warning(s) in area-panel build (above)"
               exit 1
           fi
+
+      - name: Compile cover panel (slim nav-slot fallback test)
+        # Slim single-page (nav_page_count: 1) config that registers ONLY
+        # cover_page in slot 1 and sets ONLY nav_page_1 — leaving nav_page_2/3/4
+        # at their nav.yaml default. Guards that the default resolves to
+        # ${nav_page_1} (a compiled page); if it reverts to the hardcoded
+        # alarm_page, nav_show_page's unreachable lvgl.page.show branches fail
+        # config validation in this alarm-less build. Uses cover_page (not
+        # area_page) so the fallback is proven page-agnostic.
+        shell: bash
+        run: |
+          set -o pipefail
+          python tests/compile.py compile tests/cover-panel.yaml 2>&1 \
+              | tee cover-build.log
+          if grep -E '^WARNING ' cover-build.log; then
+              echo "::error::Unexpected warning(s) in cover-panel build (above)"
+              exit 1
+          fi

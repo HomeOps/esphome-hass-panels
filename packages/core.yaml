@@ -15,9 +15,9 @@
 #     area_ui: {url: ..., file: packages/area-ui.yaml}
 #
 # When composing slim, every active nav_page_N must point at a page that one
-# of your included UI packages defines. Unused slots default to alarm_page
-# (nav.yaml's fallback), which only exists if you include the alarm UI — set
-# them to a page you actually include (see tests/area-panel.yaml).
+# of your included UI packages defines. You only need to set as many nav_page_N
+# as you have active pages — unused slots default to ${nav_page_1}, so they
+# always resolve to a compiled page (see tests/area-panel.yaml).
 
 substitutions:
   name: esp32-hass-panel

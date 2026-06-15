@@ -15,9 +15,12 @@
 #   substitutions:
 #     nav_page_1:     alarm_page      # leftmost swipe slot
 #     nav_page_2:     thermostat_page
-#     nav_page_3:     alarm_page      # unused slots fall back to nav_page_1
-#     nav_page_4:     alarm_page
 #     nav_page_count: "2"             # how many slots are active (1–4)
+#
+#   Only set as many nav_page_N as you have active pages. Unused slots default
+#   to ${nav_page_1}, so they always resolve to a compiled page — important for
+#   slim builds that don't include alarm_page (the unreachable lvgl.page.show
+#   branches are still validated at compile time).
 #     nav_home_page:  "1"             # 1-based index of the landing page
 #                                     # (shown on connect, target of idle return).
 #                                     # Defaults to "1". Must be <= nav_page_count.
@@ -37,9 +40,9 @@
 
 substitutions:
   nav_page_1: alarm_page      # leftmost swipe slot (default first page)
-  nav_page_2: alarm_page      # unused slots fall back to nav_page_1 (safe no-op)
-  nav_page_3: alarm_page
-  nav_page_4: alarm_page
+  nav_page_2: ${nav_page_1}   # unused slots fall back to nav_page_1 (safe no-op):
+  nav_page_3: ${nav_page_1}   # always a compiled page, so the unreachable
+  nav_page_4: ${nav_page_1}   # lvgl.page.show branches still validate in slim builds
   nav_page_count: "1"
   nav_home_page: "1"          # 1-based index of the landing page (1..nav_page_count)
   nav_auto_return_delay: 30s

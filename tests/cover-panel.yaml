@@ -1,0 +1,28 @@
+# CI fixture — single-page Cover panel (slim composition).
+#
+# Regression guard for the slim nav-slot fallback. A slim build omits
+# alarm-keypad-ui, so alarm_page is never defined. This fixture registers
+# ONLY cover_page in slot 1 and sets ONLY nav_page_1 — leaving nav_page_2/3/4
+# at their nav.yaml default. That default must resolve to ${nav_page_1}
+# (= cover_page, a compiled page); if it ever reverts to the hardcoded
+# alarm_page, nav_show_page's unreachable lvgl.page.show branches fail config
+# validation with "Couldn't find ID 'alarm_page'" and this build breaks.
+#
+# Uses cover_page (not area_page) on purpose, so the fallback is proven to be
+# page-agnostic rather than coincidental to one UI package.
+#
+# Compile-only — never flashed to a real device.
+
+substitutions:
+  name: test-cover-panel
+  friendly_name: Test Cover Panel
+  cover_entity_id: cover.test_garage
+  # cover_page in slot 1 only — exactly like a real slim deployment. The unused
+  # slots must inherit ${nav_page_1} (nav.yaml default) so they resolve to a
+  # compiled page; setting them here would mask a regression in that fallback.
+  nav_page_1: cover_page
+  nav_page_count: "1"
+
+packages:
+  core: !include ../packages/core.yaml
+  cover_ui: !include ../packages/cover-ui.yaml
