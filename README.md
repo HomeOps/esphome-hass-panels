@@ -88,6 +88,7 @@ Available on AliExpress — search: *"ESP32-S3 Arduino LVGL Wifi 4.0 inch 480x48
 | `secrets.yaml` | *(not committed)* wifi, API key, OTA password, AP credentials |
 | `3d/cradle.scad` | OpenSCAD source for the 3D-printable wall-mount cradle |
 | `3d/cradle.stl` | Pre-rendered STL ready to slice |
+| `ir-blaster/` | Optional IR-emitter hardware mod (driver circuit, BOM, wiring) — see [`ir-blaster/README.md`](ir-blaster/README.md) |
 
 ### Architecture
 
