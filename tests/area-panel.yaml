@@ -21,12 +21,10 @@ substitutions:
   area_locks_entity_id: lock.test_area
   area_temp_entity_id: sensor.test_area_temperature
   area_humidity_entity_id: sensor.test_area_humidity
-  # area_page in slot 1; unused slots must also resolve to a compiled page,
-  # so point them at area_page too (their alarm_page default isn't built here).
+  # area_page in slot 1 only — exactly like a real slim deployment. The unused
+  # slots must inherit ${nav_page_1} (nav.yaml default) so they resolve to a
+  # compiled page; setting them here would mask a regression in that fallback.
   nav_page_1: area_page
-  nav_page_2: area_page
-  nav_page_3: area_page
-  nav_page_4: area_page
   nav_page_count: "1"
 
 packages:

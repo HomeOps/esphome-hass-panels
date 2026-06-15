@@ -129,7 +129,7 @@ packages:
       # other UI pages omitted -> not compiled
 ```
 
-This drops the unused pages from flash (~140 KB measured for four). When composing slim, point **every** active `nav_page_N` at a page you actually included — unused slots fall back to `alarm_page`, which won't exist unless you include the alarm UI.
+This drops the unused pages from flash (~140 KB measured for four). When composing slim, point every active `nav_page_N` at a page you actually included. You only need to set as many `nav_page_N` as you have active pages — unused slots fall back to `nav_page_1`, so they always resolve to a compiled page (the alarm UI need not be included).
 
 #### When the image still doesn't fit — opt-in 16 MB flash
 
@@ -206,9 +206,9 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `area_humidity_entity_id` | `sensor.none` | *Optional.* HA humidity sensor. Left at `sensor.none` → hidden |
 | **Navigation** | | |
 | `nav_page_1` | `alarm_page` | LVGL page ID at swipe slot 1 (leftmost) |
-| `nav_page_2` | `alarm_page` | Page at slot 2 (unused slots fall back to `nav_page_1`) |
-| `nav_page_3` | `alarm_page` | Page at slot 3 |
-| `nav_page_4` | `alarm_page` | Page at slot 4 |
+| `nav_page_2` | `${nav_page_1}` | Page at slot 2 (unused slots fall back to `nav_page_1`) |
+| `nav_page_3` | `${nav_page_1}` | Page at slot 3 |
+| `nav_page_4` | `${nav_page_1}` | Page at slot 4 |
 | `nav_page_count` | `1` | Number of active pages in the swipe cycle (1–4) |
 | `nav_home_page` | `"1"` | 1-based index (1…`nav_page_count`) of the landing page. The home page is shown on connect, when sleep mode wakes, and as the idle auto-return target. Must be ≤ `nav_page_count`. |
 | `nav_auto_return_delay` | `30s` | Idle time before auto-returning to home page |
