@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.0...v2.3.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* fall back unused nav slots to nav_page_1 for slim builds ([#54](https://github.com/HomeOps/esphome-hass-panels/issues/54)) ([092560b](https://github.com/HomeOps/esphome-hass-panels/commit/092560b324387722c2c11498fc740ea2a4a7f519))
+
 ## [2.3.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.2.0...v2.3.0) (2026-06-14)
 
 
