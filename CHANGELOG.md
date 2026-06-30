@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.2](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.1...v2.3.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* light backlight at boot when sleep mode is off ([#57](https://github.com/HomeOps/esphome-hass-panels/issues/57)) ([83f9f80](https://github.com/HomeOps/esphome-hass-panels/commit/83f9f80c87783cd4013880a8f69fdeab7b784f7b))
+
 ## [2.3.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.0...v2.3.1) (2026-06-15)
 
 
