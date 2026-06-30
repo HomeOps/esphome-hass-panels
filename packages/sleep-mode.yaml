@@ -179,10 +179,18 @@ script:
       - lambda: 'id(g_sleep_bypass) = false;'
       - script.execute: sleep_mode_auto_off
 
-# If sleep mode was on before a reboot, RESTORE_DEFAULT_OFF brings the
-# switch back as ON (template switch restores user state). This on_boot
-# ensures the panel actually goes to sleep at startup rather than sitting
-# lit until the next touch. Priority -100: after LVGL init.
+# Sleep mode is the single source of truth for the backlight at startup.
+# At every boot (cold power-on or post-OTA reboot) this on_boot sets the
+# backlight to match the sleep switch:
+#   sleep ON  → go to sleep (black overlay, backlight off) rather than
+#               sitting lit until the next touch.
+#   sleep OFF → explicitly light the backlight. The OTA flash blanks the
+#               screen (core.yaml on_begin) and a persisted/last state can
+#               leave it dark, so don't rely on restore_mode alone — turn
+#               it on here so the panel always comes up lit when not asleep.
+# (If sleep was on before a reboot, RESTORE_DEFAULT_OFF restores the switch
+# as ON; the substitution default only applies on a fresh/erased device.)
+# Priority -100: after LVGL init.
 esphome:
   on_boot:
     priority: -100
@@ -192,6 +200,10 @@ esphome:
             lambda: 'return id(sleep_mode_enable).state;'
           then:
             - script.execute: sleep_mode_sleep
+          else:
+            - light.turn_on:
+                id: display_backlight
+                transition_length: 0s
 
 # Full-screen black widget on the top layer. Shown when asleep, it both
 # hides any residual LCD content and intercepts LVGL touch routing so
