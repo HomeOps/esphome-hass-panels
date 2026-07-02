@@ -7,8 +7,13 @@
 #   y=122..139 — "CURRENT" sub-label
 #   y=145..214 — setpoint row  [-]  XX.X°  [+]
 #   y=220..280 — HVAC mode dropdown
-#   y=290..350 — preset dropdown
+#   y=290..350 — preset dropdown (hidden when the entity has no presets)
 #   Remaining space available for future features
+#
+# The MODE and PRESET dropdowns adapt to the entity's advertised capabilities
+# (hvac_modes / preset_modes): unsupported HVAC modes (heat, cool, fan_only, …)
+# are dropped from the list and the whole PRESET section is hidden when the
+# entity exposes no presets — the UI never offers a capability the device lacks.
 
 substitutions:
   # HA climate entity + setpoint range this page controls. Self-defaulted so
@@ -24,6 +29,32 @@ globals:
     type: float
     restore_value: no
     initial_value: '22.0'
+
+  # Capabilities advertised by the HA climate entity, learned at runtime from
+  # its hvac_modes / preset_modes attributes. These drive which options the
+  # dropdowns present and map a dropdown index back to the HA mode/preset
+  # string, so the UI only ever offers what the device actually supports.
+  - id: g_hvac_modes
+    type: std::vector<std::string>
+    restore_value: no
+  - id: g_preset_modes
+    type: std::vector<std::string>
+    restore_value: no
+
+esphome:
+  # priority -100 → runs after LVGL is up (matches nav/sleep-mode/area).
+  on_boot:
+    priority: -100
+    then:
+      # Seed the HVAC mode map to match the dropdown's static option order so
+      # mode selection works before HA reports hvac_modes (a climate entity
+      # always advertises hvac_modes, so this is refined on connect). Presets
+      # start empty + hidden: unless the entity advertises preset_modes, the
+      # PRESET section is never shown.
+      - lambda: |-
+          id(g_hvac_modes) = {"off", "heat", "cool", "auto", "fan_only"};
+      - lvgl.widget.hide: dd_preset_mode
+      - lvgl.widget.hide: lbl_preset_heading
 
 sensor:
   - platform: homeassistant
@@ -60,16 +91,18 @@ text_sensor:
     id: clim_hvac_mode
     entity_id: ${thermostat_entity_id}
     on_value:
-      # Accept both "auto" and "heat_cool" for index 3 — different HA climate
-      # integrations expose the dual-setpoint mode under either name.
+      # Select the entry matching the current mode within the dynamically-built
+      # option list (g_hvac_modes). Accept both "auto" and "heat_cool" — some HA
+      # integrations expose the dual-setpoint mode under either name, but the UI
+      # only ever offers it as "auto".
       - lvgl.dropdown.update:
           id: dd_hvac_mode
           selected_index: !lambda |-
-            if (x == "off")                        return 0;
-            if (x == "heat")                       return 1;
-            if (x == "cool")                       return 2;
-            if (x == "auto" || x == "heat_cool")   return 3;
-            if (x == "fan_only")                   return 4;
+            auto &modes = id(g_hvac_modes);
+            for (size_t i = 0; i < modes.size(); i++) {
+              if (modes[i] == x || (modes[i] == "auto" && x == "heat_cool"))
+                return (int) i;
+            }
             return 0;
 
   - platform: homeassistant
@@ -88,11 +121,103 @@ text_sensor:
       - lvgl.dropdown.update:
           id: dd_preset_mode
           selected_index: !lambda |-
-            if (x == "home")  return 0;
-            if (x == "away")  return 1;
-            if (x == "sleep") return 2;
-            if (x == "none")  return 3;
+            auto &presets = id(g_preset_modes);
+            for (size_t i = 0; i < presets.size(); i++) {
+              if (presets[i] == x) return (int) i;
+            }
             return 0;
+
+  # ── Capability discovery ────────────────────────────────────────────
+  # HA advertises which HVAC modes / presets an entity supports via its
+  # hvac_modes and preset_modes list attributes. We rebuild the dropdowns
+  # from those lists so the UI only presents capabilities the device has:
+  # no heat mode → no "Heat"; no fan_only → no "Fan Only"; no presets → the
+  # whole PRESET section is hidden.
+  - platform: homeassistant
+    id: clim_hvac_modes
+    entity_id: ${thermostat_entity_id}
+    attribute: hvac_modes
+    on_value:
+      - lambda: |-
+          // Attribute arrives as a list literal, e.g. "['off', 'heat', 'cool']".
+          // Strip brackets/quotes/spaces and split on commas into tokens.
+          std::string raw = x;
+          std::vector<std::string> avail;
+          std::string tok;
+          for (char c : raw) {
+            if (c == '[' || c == ']' || c == '\'' || c == '"' || c == ' ') continue;
+            if (c == ',') { if (!tok.empty()) { avail.push_back(tok); tok.clear(); } }
+            else tok += c;
+          }
+          if (!tok.empty()) avail.push_back(tok);
+          auto has = [&](const char *m) {
+            for (auto &t : avail) if (t == m) return true;
+            return false;
+          };
+          // Build the option list in a stable display order, keeping only
+          // supported modes. g_hvac_modes maps dropdown index → HA mode string.
+          std::vector<std::string> modes, labels;
+          if (has("off"))      { modes.push_back("off");      labels.push_back("Off"); }
+          if (has("heat"))     { modes.push_back("heat");     labels.push_back("Heat"); }
+          if (has("cool"))     { modes.push_back("cool");     labels.push_back("Cool"); }
+          if (has("auto") || has("heat_cool")) { modes.push_back("auto"); labels.push_back("Auto"); }
+          if (has("fan_only")) { modes.push_back("fan_only"); labels.push_back("Fan Only"); }
+          if (labels.empty())  { modes.push_back("off");      labels.push_back("Off"); }
+          id(g_hvac_modes) = modes;
+          id(dd_hvac_mode)->set_options(labels);
+          // Re-assert the current mode's slot now that the option order changed.
+          std::string cur = id(clim_hvac_mode).state;
+          for (size_t i = 0; i < modes.size(); i++) {
+            if (modes[i] == cur || (modes[i] == "auto" && cur == "heat_cool")) {
+              id(dd_hvac_mode)->set_selected_index(i, LV_ANIM_OFF);
+              break;
+            }
+          }
+
+  - platform: homeassistant
+    id: clim_preset_modes
+    entity_id: ${thermostat_entity_id}
+    attribute: preset_modes
+    on_value:
+      - lambda: |-
+          std::string raw = x;
+          std::vector<std::string> presets, labels;
+          std::string tok;
+          auto flush = [&]() {
+            if (tok.empty()) return;
+            std::string label = tok;
+            if (label[0] >= 'a' && label[0] <= 'z') label[0] -= 32;  // Title-case
+            presets.push_back(tok);
+            labels.push_back(label);
+            tok.clear();
+          };
+          for (char c : raw) {
+            if (c == '[' || c == ']' || c == '\'' || c == '"' || c == ' ') continue;
+            if (c == ',') flush();
+            else tok += c;
+          }
+          flush();
+          id(g_preset_modes) = presets;
+          if (!presets.empty()) {
+            id(dd_preset_mode)->set_options(labels);
+            std::string cur = id(clim_preset_mode).state;
+            for (size_t i = 0; i < presets.size(); i++) {
+              if (presets[i] == cur) {
+                id(dd_preset_mode)->set_selected_index(i, LV_ANIM_OFF);
+                break;
+              }
+            }
+          }
+      # Show the PRESET section only when the entity advertises presets.
+      - if:
+          condition:
+            lambda: 'return id(g_preset_modes).empty();'
+          then:
+            - lvgl.widget.hide: dd_preset_mode
+            - lvgl.widget.hide: lbl_preset_heading
+          else:
+            - lvgl.widget.show: dd_preset_mode
+            - lvgl.widget.show: lbl_preset_heading
 
 script:
   - id: set_hvac_mode
@@ -247,19 +372,21 @@ lvgl:
                     - "Fan Only"
                   selected_index: 0
                   on_value:
-                    # Write "auto" rather than "heat_cool": this is the mode
-                    # name most HA climate integrations (Ecobee, Nest, generic
-                    # thermostat) accept; devices that canonically report
-                    # "heat_cool" still accept "auto" via the climate domain.
+                    # Map the selected index back through g_hvac_modes, which
+                    # only ever holds modes the entity supports. "auto" is sent
+                    # rather than "heat_cool" — the name most HA climate
+                    # integrations (Ecobee, Nest, generic thermostat) accept;
+                    # devices that canonically report "heat_cool" still accept it.
                     - lambda: |-
-                        static const char* modes[] = {"off","heat","cool","auto","fan_only"};
                         int idx = x;
-                        if (idx >= 0 && idx < 5) {
-                          id(set_hvac_mode).execute(std::string(modes[idx]));
+                        auto &modes = id(g_hvac_modes);
+                        if (idx >= 0 && idx < (int) modes.size()) {
+                          id(set_hvac_mode).execute(modes[idx]);
                         }
 
               # ── PRESET selection (dropdown) ────────────────────
               - label:
+                  id: lbl_preset_heading
                   x: 10
                   y: 290
                   width: 460
@@ -285,8 +412,8 @@ lvgl:
                   selected_index: 0
                   on_value:
                     - lambda: |-
-                        static const char* presets[] = {"home","away","sleep","none"};
                         int idx = x;
-                        if (idx >= 0 && idx < 4) {
-                          id(set_preset_mode).execute(std::string(presets[idx]));
+                        auto &presets = id(g_preset_modes);
+                        if (idx >= 0 && idx < (int) presets.size()) {
+                          id(set_preset_mode).execute(presets[idx]);
                         }
