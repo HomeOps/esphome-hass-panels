@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.2...v2.4.0) (2026-07-02)
+
+
+### Features
+
+* adapt thermostat UI to entity capabilities ([#59](https://github.com/HomeOps/esphome-hass-panels/issues/59)) ([0e9e854](https://github.com/HomeOps/esphome-hass-panels/commit/0e9e8542aae56b37deb67c986a16d8cca4268a29))
+
 ## [2.3.2](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.1...v2.3.2) (2026-06-30)
 
 
