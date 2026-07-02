@@ -139,19 +139,23 @@ text_sensor:
     attribute: hvac_modes
     on_value:
       - lambda: |-
-          // Attribute arrives as a list literal, e.g. "['off', 'heat', 'cool']".
-          // Strip brackets/quotes/spaces and split on commas into tokens.
+          // hvac_modes arrives as a stringified Python list. Depending on the
+          // HA version the entries may be clean ('cool') or enum reprs
+          // (<HVACMode.COOL: 'cool'>), so match each mode name as a whole word
+          // (bounded by non-identifier chars) rather than tokenising. The '_'
+          // boundary also stops "heat" matching inside "heat_cool".
           std::string raw = x;
-          std::vector<std::string> avail;
-          std::string tok;
-          for (char c : raw) {
-            if (c == '[' || c == ']' || c == '\'' || c == '"' || c == ' ') continue;
-            if (c == ',') { if (!tok.empty()) { avail.push_back(tok); tok.clear(); } }
-            else tok += c;
-          }
-          if (!tok.empty()) avail.push_back(tok);
-          auto has = [&](const char *m) {
-            for (auto &t : avail) if (t == m) return true;
+          ESP_LOGD("thermostat", "hvac_modes raw='%s'", raw.c_str());
+          auto is_ident = [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                   (c >= '0' && c <= '9') || c == '_';
+          };
+          auto has = [&](const std::string &m) {
+            for (size_t p = 0; (p = raw.find(m, p)) != std::string::npos; p += m.size()) {
+              bool left  = (p == 0) || !is_ident(raw[p - 1]);
+              bool right = (p + m.size() >= raw.size()) || !is_ident(raw[p + m.size()]);
+              if (left && right) return true;
+            }
             return false;
           };
           // Build the option list in a stable display order, keeping only
@@ -180,7 +184,11 @@ text_sensor:
     attribute: preset_modes
     on_value:
       - lambda: |-
+          // preset_modes are plain strings in HA, so a clean list literal
+          // ("['home', 'away']") is expected here — strip the punctuation and
+          // split on commas. Logged so the live format can be confirmed.
           std::string raw = x;
+          ESP_LOGD("thermostat", "preset_modes raw='%s'", raw.c_str());
           std::vector<std::string> presets, labels;
           std::string tok;
           auto flush = [&]() {
