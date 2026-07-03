@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.4.0...v2.4.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* parse hvac_modes when HA sends enum reprs ([#61](https://github.com/HomeOps/esphome-hass-panels/issues/61)) ([570466b](https://github.com/HomeOps/esphome-hass-panels/commit/570466bdb358144a99264fd78d7154dc23171406))
+
 ## [2.4.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.3.2...v2.4.0) (2026-07-02)
 
 
