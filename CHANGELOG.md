@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/HomeOps/esphome-hass-panels/compare/v2.4.1...v2.5.0) (2026-07-03)
+
+
+### Features
+
+* add thermostat_modes override for the MODE dropdown ([#63](https://github.com/HomeOps/esphome-hass-panels/issues/63)) ([f81da61](https://github.com/HomeOps/esphome-hass-panels/commit/f81da61bd37c37a98a89e0f297c8ae675d420a39))
+
 ## [2.4.1](https://github.com/HomeOps/esphome-hass-panels/compare/v2.4.0...v2.4.1) (2026-07-03)
 
 
