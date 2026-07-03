@@ -191,7 +191,7 @@ The YAML uses ESPHome [substitutions](https://esphome.io/components/substitution
 | `thermostat_temp_min` | `16.0` | Minimum settable target temperature |
 | `thermostat_temp_max` | `30.0` | Maximum settable target temperature |
 | `thermostat_temp_step` | `0.5` | Temperature increment per button press |
-| `thermostat_modes` | `""` (auto-detect) | Override the MODE dropdown. Empty auto-detects from the entity's `hvac_modes`. Set to a comma-separated list (`off,cool,fan_only`) to force exactly those options. Names: `off`, `heat`, `cool`, `auto` (or `heat_cool`), `fan_only` |
+| `thermostat_modes` | `""` (auto-detect) | Override the MODE dropdown. Empty auto-detects from the entity's `hvac_modes`. Set to a comma-separated list (`off,cool,fan_only`) to force exactly those options. Names: `off`, `heat`, `cool`, `auto` (or `heat_cool`), `dry`, `fan_only` |
 | **Cover** | | |
 | `cover_entity_id` | `cover.garage_door` | HA `cover.*` entity (garage door, blinds, gate, …) shown on the cover page |
 | **Energy** | | |

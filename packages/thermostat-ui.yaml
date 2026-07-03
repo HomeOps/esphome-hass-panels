@@ -29,8 +29,9 @@ substitutions:
   # the entity's hvac_modes attribute (default). Set to a comma-separated list
   # of HA mode names to force exactly those options, ignoring what the entity
   # advertises — e.g. "off,cool,fan_only" to present only Off / Cool / Fan
-  # Only. Recognised names: off, heat, cool, auto (or heat_cool), fan_only.
-  # Order in the list does not matter; options always render in a fixed order.
+  # Only. Recognised names: off, heat, cool, auto (or heat_cool), dry,
+  # fan_only. Order in the list does not matter; options always render in a
+  # fixed order.
   thermostat_modes: ""
 
 globals:
@@ -62,7 +63,7 @@ esphome:
       - lambda: |-
           std::string ov = "${thermostat_modes}";
           id(apply_hvac_modes).execute(
-              ov.empty() ? std::string("off,heat,cool,auto,fan_only") : ov);
+              ov.empty() ? std::string("off,heat,cool,auto,dry,fan_only") : ov);
       - lvgl.widget.hide: dd_preset_mode
       - lvgl.widget.hide: lbl_preset_heading
 
@@ -238,6 +239,7 @@ script:
           if (has("heat"))     { modes.push_back("heat");     labels.push_back("Heat"); }
           if (has("cool"))     { modes.push_back("cool");     labels.push_back("Cool"); }
           if (has("auto") || has("heat_cool")) { modes.push_back("auto"); labels.push_back("Auto"); }
+          if (has("dry"))      { modes.push_back("dry");      labels.push_back("Dry"); }
           if (has("fan_only")) { modes.push_back("fan_only"); labels.push_back("Fan Only"); }
           if (labels.empty())  { modes.push_back("off");      labels.push_back("Off"); }
           id(g_hvac_modes) = modes;
