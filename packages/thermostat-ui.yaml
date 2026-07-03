@@ -14,6 +14,7 @@
 # (hvac_modes / preset_modes): unsupported HVAC modes (heat, cool, fan_only, …)
 # are dropped from the list and the whole PRESET section is hidden when the
 # entity exposes no presets — the UI never offers a capability the device lacks.
+# The MODE list can be forced with the thermostat_modes substitution (see below).
 
 substitutions:
   # HA climate entity + setpoint range this page controls. Self-defaulted so
@@ -23,6 +24,15 @@ substitutions:
   thermostat_temp_min: "16.0"
   thermostat_temp_max: "30.0"
   thermostat_temp_step: "0.5"
+
+  # Optional override for the MODE dropdown. Leave empty to auto-detect from
+  # the entity's hvac_modes attribute (default). Set to a comma-separated list
+  # of HA mode names to force exactly those options, ignoring what the entity
+  # advertises — e.g. "off,cool,fan_only" to present only Off / Cool / Fan
+  # Only. Recognised names: off, heat, cool, auto (or heat_cool), dry,
+  # fan_only. Order in the list does not matter; options always render in a
+  # fixed order.
+  thermostat_modes: ""
 
 globals:
   - id: target_temp
@@ -46,13 +56,14 @@ esphome:
   on_boot:
     priority: -100
     then:
-      # Seed the HVAC mode map to match the dropdown's static option order so
-      # mode selection works before HA reports hvac_modes (a climate entity
-      # always advertises hvac_modes, so this is refined on connect). Presets
-      # start empty + hidden: unless the entity advertises preset_modes, the
-      # PRESET section is never shown.
+      # Seed the MODE dropdown before HA connects: from the thermostat_modes
+      # override when set, otherwise the full default set (refined once the
+      # entity reports hvac_modes). Presets start empty + hidden: unless the
+      # entity advertises preset_modes, the PRESET section is never shown.
       - lambda: |-
-          id(g_hvac_modes) = {"off", "heat", "cool", "auto", "fan_only"};
+          std::string ov = "${thermostat_modes}";
+          id(apply_hvac_modes).execute(
+              ov.empty() ? std::string("off,heat,cool,auto,dry,fan_only") : ov);
       - lvgl.widget.hide: dd_preset_mode
       - lvgl.widget.hide: lbl_preset_heading
 
@@ -138,45 +149,11 @@ text_sensor:
     entity_id: ${thermostat_entity_id}
     attribute: hvac_modes
     on_value:
+      # Rebuild the dropdown from the thermostat_modes override when set,
+      # otherwise from the entity's live hvac_modes. See apply_hvac_modes.
       - lambda: |-
-          // hvac_modes arrives as a stringified Python list. Depending on the
-          // HA version the entries may be clean ('cool') or enum reprs
-          // (<HVACMode.COOL: 'cool'>), so match each mode name as a whole word
-          // (bounded by non-identifier chars) rather than tokenising. The '_'
-          // boundary also stops "heat" matching inside "heat_cool".
-          std::string raw = x;
-          ESP_LOGD("thermostat", "hvac_modes raw='%s'", raw.c_str());
-          auto is_ident = [](char c) {
-            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                   (c >= '0' && c <= '9') || c == '_';
-          };
-          auto has = [&](const std::string &m) {
-            for (size_t p = 0; (p = raw.find(m, p)) != std::string::npos; p += m.size()) {
-              bool left  = (p == 0) || !is_ident(raw[p - 1]);
-              bool right = (p + m.size() >= raw.size()) || !is_ident(raw[p + m.size()]);
-              if (left && right) return true;
-            }
-            return false;
-          };
-          // Build the option list in a stable display order, keeping only
-          // supported modes. g_hvac_modes maps dropdown index → HA mode string.
-          std::vector<std::string> modes, labels;
-          if (has("off"))      { modes.push_back("off");      labels.push_back("Off"); }
-          if (has("heat"))     { modes.push_back("heat");     labels.push_back("Heat"); }
-          if (has("cool"))     { modes.push_back("cool");     labels.push_back("Cool"); }
-          if (has("auto") || has("heat_cool")) { modes.push_back("auto"); labels.push_back("Auto"); }
-          if (has("fan_only")) { modes.push_back("fan_only"); labels.push_back("Fan Only"); }
-          if (labels.empty())  { modes.push_back("off");      labels.push_back("Off"); }
-          id(g_hvac_modes) = modes;
-          id(dd_hvac_mode)->set_options(labels);
-          // Re-assert the current mode's slot now that the option order changed.
-          std::string cur = id(clim_hvac_mode).state;
-          for (size_t i = 0; i < modes.size(); i++) {
-            if (modes[i] == cur || (modes[i] == "auto" && cur == "heat_cool")) {
-              id(dd_hvac_mode)->set_selected_index(i, LV_ANIM_OFF);
-              break;
-            }
-          }
+          std::string ov = "${thermostat_modes}";
+          id(apply_hvac_modes).execute(ov.empty() ? x : ov);
 
   - platform: homeassistant
     id: clim_preset_modes
@@ -228,6 +205,54 @@ text_sensor:
             - lvgl.widget.show: lbl_preset_heading
 
 script:
+  # Rebuild the MODE dropdown from a source string (either the entity's
+  # hvac_modes attribute or the thermostat_modes override), keeping only
+  # recognised modes and rendering them in a fixed display order.
+  - id: apply_hvac_modes
+    parameters:
+      source: string
+    then:
+      - lambda: |-
+          // `source` is a stringified Python list ("['off', 'cool']"), an enum
+          // repr ("[<HVACMode.COOL: 'cool'>]") or the plain override CSV
+          // ("off,cool,fan_only"). Match each mode name as a whole word
+          // (bounded by non-identifier chars) so all three forms work and
+          // "heat" never matches inside "heat_cool".
+          std::string raw = source;
+          ESP_LOGD("thermostat", "apply_hvac_modes source='%s'", raw.c_str());
+          auto is_ident = [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                   (c >= '0' && c <= '9') || c == '_';
+          };
+          auto has = [&](const std::string &m) {
+            for (size_t p = 0; (p = raw.find(m, p)) != std::string::npos; p += m.size()) {
+              bool left  = (p == 0) || !is_ident(raw[p - 1]);
+              bool right = (p + m.size() >= raw.size()) || !is_ident(raw[p + m.size()]);
+              if (left && right) return true;
+            }
+            return false;
+          };
+          // g_hvac_modes maps dropdown index → HA mode string; labels are the
+          // matching display text. Fixed order regardless of source order.
+          std::vector<std::string> modes, labels;
+          if (has("off"))      { modes.push_back("off");      labels.push_back("Off"); }
+          if (has("heat"))     { modes.push_back("heat");     labels.push_back("Heat"); }
+          if (has("cool"))     { modes.push_back("cool");     labels.push_back("Cool"); }
+          if (has("auto") || has("heat_cool")) { modes.push_back("auto"); labels.push_back("Auto"); }
+          if (has("dry"))      { modes.push_back("dry");      labels.push_back("Dry"); }
+          if (has("fan_only")) { modes.push_back("fan_only"); labels.push_back("Fan Only"); }
+          if (labels.empty())  { modes.push_back("off");      labels.push_back("Off"); }
+          id(g_hvac_modes) = modes;
+          id(dd_hvac_mode)->set_options(labels);
+          // Re-assert the current mode's slot now that the option order changed.
+          std::string cur = id(clim_hvac_mode).state;
+          for (size_t i = 0; i < modes.size(); i++) {
+            if (modes[i] == cur || (modes[i] == "auto" && cur == "heat_cool")) {
+              id(dd_hvac_mode)->set_selected_index(i, LV_ANIM_OFF);
+              break;
+            }
+          }
+
   - id: set_hvac_mode
     parameters:
       mode: string
